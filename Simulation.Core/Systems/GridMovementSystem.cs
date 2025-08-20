@@ -10,44 +10,37 @@ namespace Simulation.Core.Systems;
 public sealed partial class GridMovementSystem(World world, BlockingIndex blocking, BoundsIndex bounds)
     : BaseSystem<World, float>(world)
 {
-    // Fractional accumulator per entity to map tiles/s into steps
-    private readonly Dictionary<int, VelocityVector> _accum = new();
-    
+    // Acumulador fracionário por entidade para mapear tiles/s em passos discretos
+    private readonly Dictionary<int, VelocityVector> _accumulators = new();
+
     public readonly record struct Move(Entity Entity, int MapId, DirectionInput Input);
-    
+
     public bool Apply(in Move cmd)
     {
         var e = cmd.Entity;
-        if (!World.IsAlive(e)) 
+        if (!World.IsAlive(e))
             return false; // Entidade não existe ou foi destruída
-        
-        // Verifica se a entrada de direção é válida
+
         if (cmd.Input.IsZero) return false;
 
         if (!World.Has<TilePosition, TileVelocity, MoveSpeed, MapRef>(e))
-        {
             throw new InvalidOperationException(
-                "Entity must have TilePosition, TileVelocity, MoveSpeed, and MapRef components to move.");
-        } 
+                "A entidade precisa dos componentes TilePosition, TileVelocity, MoveSpeed e MapRef para se mover.");
 
-        // Verifica se o mapa existe
-        if (!bounds.TryGet(cmd.MapId, out var b))
-            return false;
-        
+        if (!bounds.TryGet(cmd.MapId, out _))
+            return false; // O mapa de destino não tem limites definidos
+
         ref var currentInput = ref World.AddOrGet<DirectionInput>(e);
-        // Atualiza a entrada de direção
         currentInput.Direction = cmd.Input.Direction;
 
-        // Adiciona ou atualiza os componentes necessários
-        World.Set<MapRef>(e, new MapRef { MapId = cmd.MapId });
+        World.Set(e, new MapRef { MapId = cmd.MapId });
 
         return true;
     }
-    
+
     [Query]
-    [All<DirectionInput, TilePosition, MoveSpeed, TileVelocity, MapRef>]
-    private void ProcessDirectionInput(in Entity e,
-        ref DirectionInput dir, ref MoveSpeed speed, ref TileVelocity vel)
+    [All<DirectionInput, MoveSpeed, TileVelocity>]
+    private void ProcessDirectionInput(ref DirectionInput dir, ref MoveSpeed speed, ref TileVelocity vel)
     {
         if (speed.Value <= 0f || dir.IsZero)
         {
@@ -55,57 +48,92 @@ public sealed partial class GridMovementSystem(World world, BlockingIndex blocki
             return;
         }
         
-        // Calcula velocidade acumulada em tiles
-        var displacement = dir.Direction.Normalize() * speed.Value;
-
-        vel.Velocity = displacement;
-        dir.Direction = VelocityVector.Zero; // Reseta a direção após processar
+        // Calcula a velocidade em tiles por segundo
+        vel.Velocity = dir.Direction.Normalize() * speed.Value;
+        dir.Direction = VelocityVector.Zero; // Reseta a direção após o processamento
     }
-    
+
     [Query]
     [All<TilePosition, TileVelocity, MapRef>]
-    private void ProcessMovement([Data] in float dt, in Entity e,
-        ref TilePosition pos, ref TileVelocity vel, ref MapRef map)
+    private void ProcessMovement([Data] in float dt, in Entity e, ref TilePosition pos, ref TileVelocity vel, ref MapRef map)
     {
         if (dt <= 0f || vel.Velocity.IsZero)
+        {
+            // Se a velocidade for zerada, removemos o acumulador para limpar o estado
+            _accumulators.Remove(e.Id);
             return;
-        
-        // Rebuild indices if dirty
+        }
+
         bounds.RebuildIfDirty(World);
         blocking.RebuildIfDirty(World);
-        
-        if (vel.Velocity.IsZero)
-            return; // Sem movimento
-        
-        if (!_accum.TryGetValue(e.Id, out var acum))
+
+        // 1. Pega o valor acumulado da última atualização (ou zero)
+        if (!_accumulators.TryGetValue(e.Id, out var accumulated))
         {
-            // Inicializa o acumulador se não existir
-            acum = new VelocityVector(0f, 0f);
-            _accum[e.Id] = acum;
+            accumulated = VelocityVector.Zero;
         }
-        
-        var id = e.Id;
-        var acc = vel.Velocity * dt;
-        var step = new GameVector2((int)acc.X, (int)acc.Y);
-        
-        // Move per-axis (N,S,E,W) tiles; diagonals if both non-zero
-        TryMove(ref pos, map.MapId, step);
-        
-        acc -= new VelocityVector(step.X, step.Y);
-        
-        // Atualiza o acumulador
-        _accum[id] += acc;
+
+        // 2. Adiciona o deslocamento do frame atual ao acumulador
+        var totalDisplacement = accumulated + (vel.Velocity * dt);
+
+        // 3. Calcula quantos tiles inteiros a entidade deve se mover
+        var step = new GameVector2((int)totalDisplacement.X, (int)totalDisplacement.Y);
+
+        // 4. Se houver movimento a ser feito, executa-o
+        if (!step.IsZero)
+        {
+            TryMove(ref pos, map.MapId, step);
+            // Subtrai os tiles inteiros que foram "usados" para o movimento
+            totalDisplacement -= new VelocityVector(step.X, step.Y);
+        }
+
+        // 5. Guarda de volta a parte fracionária para o próximo frame
+        _accumulators[e.Id] = totalDisplacement;
     }
 
     private void TryMove(ref TilePosition pos, int mapId, GameVector2 step)
     {
-        if (step.IsZero) return;
-        var target = pos.Position + step.Sign();
-        // Bounds check if any bounds entity exists for this map
-        if (bounds.TryGet(mapId, out var bound))
-            if (!bound.Contains(new TilePosition{ Position = target })) return;
+        // Esta implementação agora move um tile de cada vez para evitar "atravessar" paredes
+        var remainingStep = step;
+        var currentPos = pos.Position;
 
-        if (!blocking.IsBlocked(mapId, target))
-            pos.Position = target; // Move if not blocked
+        // Move no eixo X
+        while (remainingStep.X != 0)
+        {
+            var singleStep = new GameVector2(Math.Sign(remainingStep.X), 0);
+            var target = currentPos + singleStep;
+
+            if (IsMoveInvalid(mapId, target)) break; // Para se encontrar um obstáculo
+            
+            currentPos = target;
+            
+            remainingStep = remainingStep with { X = remainingStep.X - singleStep.X };
+        }
+        
+        // Move no eixo Y
+        while (remainingStep.Y != 0)
+        {
+            var singleStep = new GameVector2(0, Math.Sign(remainingStep.Y));
+            var target = currentPos + singleStep;
+
+            if (IsMoveInvalid(mapId, target)) break; // Para se encontrar um obstáculo
+
+            currentPos = target;
+            
+            remainingStep = remainingStep with { Y = remainingStep.Y - singleStep.Y };
+        }
+        
+        pos.Position = currentPos; // Atualiza a posição final
+    }
+
+    private bool IsMoveInvalid(int mapId, GameVector2 target)
+    {
+        // Verifica limites do mapa
+        if (bounds.TryGet(mapId, out var bound))
+        {
+            if (!bound.Contains(new TilePosition { Position = target })) return true;
+        }
+        // Verifica se o tile está bloqueado
+        return blocking.IsBlocked(mapId, target);
     }
 }

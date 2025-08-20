@@ -14,7 +14,4 @@
   <ItemGroup>
     <ProjectReference Include="../Simulation.Core/Simulation.Core.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Systems\" />
-  </ItemGroup>
 </Project>

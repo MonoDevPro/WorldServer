@@ -22,14 +22,10 @@ public sealed class SpawnDespawnSystem : ISystem<float>
         {
             life.RemainingSeconds -= dt;
             if (life.RemainingSeconds <= 0)
-            {
                 toDestroy.Add(entity);
-            }
         });
         foreach (var e in toDestroy)
-        {
             World.Destroy(e);
-        }
     }
     public void AfterUpdate(in float t) { }
     public void Dispose() { }
