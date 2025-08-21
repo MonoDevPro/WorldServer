@@ -10,11 +10,12 @@ namespace Simulation.Core.Abstractions.In;
 /// </summary>
 public interface ISimulationRequests
 {
-    void EnqueueMove(Entity entity, int mapId, VelocityVector direction);
-    void EnqueueTeleport(Entity entity, int mapId, TilePosition target);
-    void EnqueueMeleeAttack(Entity attacker, Entity target);
-    void EnqueueRangedAttack(Entity attacker, Entity target);
-    void EnqueueAreaAttack(Entity attacker, GameVector2 targetPosition, float radius);
-    /// <summary>Despacha todos os comandos pendentes chamando Apply nos sistemas.</summary>
-    void Dispatch();
+    void EnqueueMove(Requests.Move request);
+    void EnqueueTeleport(Requests.Teleport request);
+    void EnqueueAttack(Requests.Attack request);
+
+    // Métodos de drenagem para o loop da simulação consumir todos os comandos pendentes a cada tick
+    bool TryDequeueMove(out Requests.Move request);
+    bool TryDequeueTeleport(out Requests.Teleport request);
+    bool TryDequeueAttack(out Requests.Attack request);
 }

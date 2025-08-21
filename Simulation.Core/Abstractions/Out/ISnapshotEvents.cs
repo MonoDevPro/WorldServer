@@ -1,9 +1,8 @@
-using Simulation.Core.Abstractions.Out.DTOs;
 
 namespace Simulation.Core.Abstractions.Out;
 
 public interface ISnapshotEvents : IDisposable
 {
-    public event Action<MoveSnapshot> OnMoveSnapshot;
-    public event Action<AttackSnapshot> OnAttackSnapshot;
+    public event Action<Snapshots.MoveSnapshot> OnMoveSnapshot;
+    public event Action<Snapshots.AttackSnapshot> OnAttackSnapshot;
 }
