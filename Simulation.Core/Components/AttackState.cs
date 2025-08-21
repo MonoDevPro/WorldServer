@@ -1,20 +1,6 @@
-namespace Simulation.Core.Components;
+using Simulation.Core.Commons.Enums;
 
-public enum AttackPhase
-{
-    /// <summary>
-    /// Pronto para iniciar um novo ataque.
-    /// </summary>
-    Ready,
-    /// <summary>
-    /// Preparando o ataque (durante o cast time).
-    /// </summary>
-    Casting,
-    /// <summary>
-    /// Em tempo de recarga após um ataque.
-    /// </summary>
-    OnCooldown
-}
+namespace Simulation.Core.Components;
 
 /// <summary>
 /// Gerencia o estado atual do ciclo de ataque de uma entidade.
@@ -27,4 +13,9 @@ public struct AttackState
     /// Cronômetro usado tanto para a duração (casting) quanto para a recarga (cooldown).
     /// </summary>
     public float Timer;
+    
+    /// <summary>
+    /// Flag interna para evitar que o primeiro tick de cooldown desconte dt no mesmo frame da transição.
+    /// </summary>
+    public bool EnteredCooldownThisFrame;
 }

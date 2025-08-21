@@ -1,4 +1,5 @@
 using Arch.Core;
+using Simulation.Core.Abstractions.In;
 using Simulation.Core.Components;
 using Simulation.Core.Utilities;
 
@@ -6,9 +7,7 @@ namespace Simulation.Core.Systems;
 
 public sealed class TeleportSystem(World world, BlockingIndex blocking, BoundsIndex bounds)
 {
-    public readonly record struct Teleport(Entity Entity, int MapId, TilePosition Target);
-
-    public bool Apply(in Teleport cmd)
+    public bool Apply(in Requests.Teleport cmd)
     {
         var e = cmd.Entity;
         if (!world.IsAlive(e)) return false;

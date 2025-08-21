@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Arch.Core;
+using Simulation.Core.Abstractions.In;
 using Simulation.Core.Commons;
 using Simulation.Core.Components;
 using Simulation.Core.Systems;
@@ -45,7 +46,7 @@ public class TeleportSystemTests
         // Arrange
         var entity = _world.Create(new TilePosition { Position = new GameVector2(0, 0) }, new MapRef { MapId = 1 });
         var targetPosition = new TilePosition { Position = new GameVector2(25, 50) };
-        var cmd = new TeleportSystem.Teleport(entity, 1, targetPosition);
+        var cmd = new Requests.Teleport(entity, 1, targetPosition);
 
         // Act
         var result = _system.Apply(in cmd);
@@ -66,7 +67,7 @@ public class TeleportSystemTests
         var deadEntity = _world.Create();
         _world.Destroy(deadEntity);
         var targetPosition = new TilePosition { Position = new GameVector2(5, 5) };
-        var cmd = new TeleportSystem.Teleport(deadEntity, 1, targetPosition);
+        var cmd = new Requests.Teleport(deadEntity, 1, targetPosition);
 
         // Act
         var result = _system.Apply(in cmd);
@@ -81,7 +82,7 @@ public class TeleportSystemTests
         // Arrange
         var entity = _world.Create(new TilePosition { Position = new GameVector2(0, 0) }, new MapRef { MapId = 1 });
         var blockedPosition = new TilePosition { Position = new GameVector2(10, 10) }; // Posição bloqueada no Setup
-        var cmd = new TeleportSystem.Teleport(entity, 1, blockedPosition);
+        var cmd = new Requests.Teleport(entity, 1, blockedPosition);
         
         // Act
         var result = _system.Apply(in cmd);
@@ -99,7 +100,7 @@ public class TeleportSystemTests
         // Arrange
         var entity = _world.Create(new TilePosition { Position = new GameVector2(0, 0) }, new MapRef { MapId = 1 });
         var outOfBoundsPosition = new TilePosition { Position = new GameVector2(101, 101) }; // Fora dos limites definidos no Setup
-        var cmd = new TeleportSystem.Teleport(entity, 1, outOfBoundsPosition);
+        var cmd = new Requests.Teleport(entity, 1, outOfBoundsPosition);
 
         // Act
         var result = _system.Apply(in cmd);
@@ -120,7 +121,7 @@ public class TeleportSystemTests
         
         var entity = _world.Create(new TilePosition { Position = new GameVector2(0, 0) }, new MapRef { MapId = 1 });
         var targetPosition = new TilePosition { Position = new GameVector2(5, 5) };
-        var cmd = new TeleportSystem.Teleport(entity, 2, targetPosition); // Teleportando para o mapa 2
+        var cmd = new Requests.Teleport(entity, 2, targetPosition); // Teleportando para o mapa 2
 
         // Act
         var result = _system.Apply(in cmd);

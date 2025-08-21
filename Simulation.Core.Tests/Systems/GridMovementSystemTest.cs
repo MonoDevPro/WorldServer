@@ -1,6 +1,7 @@
 using System;
 using Arch.Core;
 using NUnit.Framework;
+using Simulation.Core.Abstractions.In;
 using Simulation.Core.Commons;
 using Simulation.Core.Components;
 using Simulation.Core.Systems;
@@ -55,7 +56,7 @@ public class GridMovementSystemTests
     {
         // Arrange
         var entity = CreateMovableEntity(new GameVector2(5, 5));
-        var moveCmd = new GridMovementSystem.Move(entity, 1, new DirectionInput { Direction = new VelocityVector(1, 0) });
+        var moveCmd = new Requests.Move(entity, 1, new DirectionInput { Direction = new VelocityVector(1, 0) });
 
         // Act
         var result = _system.Apply(in moveCmd);
@@ -74,7 +75,7 @@ public class GridMovementSystemTests
         // Arrange
         var deadEntity = _world.Create();
         _world.Destroy(deadEntity);
-        var moveCmd = new GridMovementSystem.Move(deadEntity, 1, new DirectionInput { Direction = new VelocityVector(1, 0) });
+        var moveCmd = new Requests.Move(deadEntity, 1, new DirectionInput { Direction = new VelocityVector(1, 0) });
 
         // Act
         var result = _system.Apply(in moveCmd);
@@ -88,7 +89,7 @@ public class GridMovementSystemTests
     {
         // Arrange
         var entity = _world.Create(); // Entidade sem os componentes necessários
-        var moveCmd = new GridMovementSystem.Move(entity, 1, new DirectionInput { Direction = new VelocityVector(1, 0) });
+        var moveCmd = new Requests.Move(entity, 1, new DirectionInput { Direction = new VelocityVector(1, 0) });
 
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() => _system.Apply(in moveCmd));
@@ -101,7 +102,7 @@ public class GridMovementSystemTests
     {
         // Arrange
         var entity = CreateMovableEntity(new GameVector2(5, 5), speed: 2.0f);
-        var moveCmd = new GridMovementSystem.Move(entity, 1, new DirectionInput { Direction = new VelocityVector(0, 1) });
+        var moveCmd = new Requests.Move(entity, 1, new DirectionInput { Direction = new VelocityVector(0, 1) });
         _system.Apply(in moveCmd);
 
         // Act

@@ -18,14 +18,4 @@ public sealed partial class IndexUpdateSystem(World world, SpatialHashGrid grid)
     {
         grid.Update(entity, map.MapId, pos.Position);
     }
-    
-    public override void Update(in float t)
-    {
-        // Em cada frame, a query vai passar por todas as entidades com posição e mapa
-        // e a lógica em grid.Update() vai garantir que elas sejam movidas para a célula correta se necessário.
-        UpdateGridQuery(World);
-
-        // Opcional: Adicionar lógica para remover entidades destruídas do grid
-        // Isso pode ser feito escutando eventos de destruição ou com uma query de "entidades mortas".
-    }
 }

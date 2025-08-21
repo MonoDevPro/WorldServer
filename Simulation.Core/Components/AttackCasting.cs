@@ -1,23 +1,8 @@
 using Arch.Core;
 using Simulation.Core.Commons;
+using Simulation.Core.Commons.Enums;
 
 namespace Simulation.Core.Components;
-
-public enum AttackType
-{
-    /// <summary>
-    /// Ataque corpo a corpo.
-    /// </summary>
-    Melee,
-    /// <summary>
-    /// Ataque à distância.
-    /// </summary>
-    Ranged,
-    /// <summary>
-    /// Ataque em área ou mágico, que pode afetar múltiplos alvos.
-    /// </summary>
-    AreaOfEffect
-}
 
 public struct AttackCasting
 {

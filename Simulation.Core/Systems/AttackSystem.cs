@@ -1,6 +1,7 @@
 using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
+using Simulation.Core.Abstractions.In;
 using Simulation.Core.Commons;
 using Simulation.Core.Commons.Enums;
 using Simulation.Core.Components;
@@ -14,20 +15,9 @@ namespace Simulation.Core.Systems;
 public sealed partial class AttackSystem(World world, SpatialHashGrid grid) : BaseSystem<World, float>(world)
 {
     /// <summary>
-    /// Comando unificado para iniciar qualquer tipo de ataque.
-    /// </summary>
-    public readonly record struct Attack(
-        Entity Attacker,
-        AttackType Type,
-        Entity TargetEntity = default,      // Usado para Melee/Ranged
-        GameVector2 TargetPosition = default, // Usado para AreaOfEffect
-        float Radius = 0f                   // Usado para AreaOfEffect
-    );
-
-    /// <summary>
     /// Inicia uma tentativa de ataque com base nos parâmetros fornecidos.
     /// </summary>
-    public bool Apply(in Attack cmd)
+    public bool Apply(in Requests.Attack cmd)
     {
         if (!World.IsAlive(cmd.Attacker) || !World.Has<AttackStats>(cmd.Attacker))
             return false;
@@ -51,6 +41,7 @@ public sealed partial class AttackSystem(World world, SpatialHashGrid grid) : Ba
         var stats = World.Get<AttackStats>(cmd.Attacker);
         state.Phase = AttackPhase.Casting;
         state.Timer = stats.Duration;
+        state.EnteredCooldownThisFrame = false; // reset flag
 
         // Adiciona o componente de contexto do ataque
         World.Add(cmd.Attacker, new AttackCasting
@@ -83,6 +74,7 @@ public sealed partial class AttackSystem(World world, SpatialHashGrid grid) : Ba
             // Inicia o cooldown
             state.Phase = AttackPhase.OnCooldown;
             state.Timer = stats.Cooldown;
+            state.EnteredCooldownThisFrame = true; // marca para não decrementar neste frame
             
             // Remove o componente de contexto, limpando o estado
             World.Remove<AttackCasting>(entity);
@@ -98,6 +90,13 @@ public sealed partial class AttackSystem(World world, SpatialHashGrid grid) : Ba
     private void ProcessCooldown([Data] in float dt, ref AttackState state)
     {
         if (state.Phase != AttackPhase.OnCooldown) return;
+
+        if (state.EnteredCooldownThisFrame)
+        {
+            // Pula a subtração neste frame para evitar consumir dt duplo na transição.
+            state.EnteredCooldownThisFrame = false;
+            return;
+        }
 
         state.Timer -= dt;
         

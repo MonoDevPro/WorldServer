@@ -1,6 +1,7 @@
 using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
+using Simulation.Core.Abstractions.In;
 using Simulation.Core.Commons;
 using Simulation.Core.Components;
 using Simulation.Core.Utilities;
@@ -13,9 +14,7 @@ public sealed partial class GridMovementSystem(World world, BlockingIndex blocki
     // Acumulador fracionário por entidade para mapear tiles/s em passos discretos
     private readonly Dictionary<int, VelocityVector> _accumulators = new();
 
-    public readonly record struct Move(Entity Entity, int MapId, DirectionInput Input);
-
-    public bool Apply(in Move cmd)
+    public bool Apply(in Requests.Move cmd)
     {
         var e = cmd.Entity;
         if (!World.IsAlive(e))
