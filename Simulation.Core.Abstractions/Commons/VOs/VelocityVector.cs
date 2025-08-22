@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 
-namespace Simulation.Core.Commons;
+namespace Simulation.Core.Abstractions.Commons;
 
 public readonly record struct VelocityVector(float X, float Y)
 {

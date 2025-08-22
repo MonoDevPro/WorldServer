@@ -1,8 +1,7 @@
-using System;
-using System.Runtime.CompilerServices;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
-namespace Simulation.Core.Commons;
+namespace Simulation.Core.Abstractions.Commons;
 
 /// <summary>
 /// Representa uma posição ou direção no grid lógico do jogo (inteiro / tile-based).

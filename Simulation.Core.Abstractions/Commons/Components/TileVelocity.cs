@@ -1,4 +1,4 @@
-using Simulation.Core.Commons;
+using Simulation.Core.Abstractions.Commons;
 
 namespace Simulation.Core.Components;
 

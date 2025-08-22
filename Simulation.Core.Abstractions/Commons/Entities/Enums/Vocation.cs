@@ -1,4 +1,4 @@
-namespace Simulation.Core.Commons.Enums;
+namespace Simulation.Core.Abstractions.Commons.Enums;
 
 public enum Vocation : byte
 {
