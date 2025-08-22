@@ -6,8 +6,8 @@ using Simulation.Core.Abstractions.In;
 using Simulation.Core.Abstractions.In.Factories;
 using Simulation.Core.Abstractions.Out;
 using Simulation.Core.Adapters.In;
-using Simulation.Core.Adapters.In.Factories;
 using Simulation.Core.Adapters.Out;
+using Simulation.Core.Factories;
 using Simulation.Core.Systems;
 using Simulation.Core.Utilities;
 

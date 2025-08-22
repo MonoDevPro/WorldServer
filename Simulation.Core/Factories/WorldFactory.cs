@@ -1,7 +1,7 @@
 using Arch.Core;
 using Simulation.Core.Abstractions.In.Factories;
 
-namespace Simulation.Core.Adapters.In.Factories;
+namespace Simulation.Core.Factories;
 
 internal sealed class WorldFactory : IWorldFactory
 {

@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using Arch.Core;
 using Simulation.Core.Abstractions.Out;
 
-namespace Simulation.Core.Adapters.Out;
+namespace Simulation.Core.Utilities;
 
 public sealed class EntityIndex : IEntityIndex
 {
