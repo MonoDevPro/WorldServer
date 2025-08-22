@@ -1,7 +1,9 @@
 using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
+using Simulation.Core.Abstractions.Commons;
 using Simulation.Core.Abstractions.In;
+using Simulation.Core.Abstractions.Out;
 using Simulation.Core.Commons;
 using Simulation.Core.Components;
 using Simulation.Core.Utilities;
@@ -14,46 +16,32 @@ public sealed partial class GridMovementSystem(World world, BlockingIndex blocki
     // Acumulador fracionário por entidade para mapear tiles/s em passos discretos
     private readonly Dictionary<int, VelocityVector> _accumulators = new();
 
-    public bool Apply(in Requests.Move cmd)
-    {
-        var e = cmd.Entity;
-        if (!World.IsAlive(e))
-            return false; // Entidade não existe ou foi destruída
-
-        if (cmd.Input.IsZero) return false;
-
-        if (!World.Has<TilePosition, TileVelocity, MoveSpeed, MapRef>(e))
-            throw new InvalidOperationException(
-                "A entidade precisa dos componentes TilePosition, TileVelocity, MoveSpeed e MapRef para se mover.");
-
-        if (!bounds.TryGet(cmd.MapId, out _))
-            return false; // O mapa de destino não tem limites definidos
-
-        ref var currentInput = ref World.AddOrGet<DirectionInput>(e);
-        currentInput.Direction = cmd.Input.Direction;
-
-        World.Set(e, new MapRef { MapId = cmd.MapId });
-
-        return true;
-    }
-
     [Query]
-    [All<DirectionInput, MoveSpeed, TileVelocity>]
-    private void ProcessDirectionInput(ref DirectionInput dir, ref MoveSpeed speed, ref TileVelocity vel)
+    [All<MoveIntent>]
+    [All<MapRef>]
+    [All<TilePosition>]
+    [All<MoveSpeed>]
+    [All<TileVelocity>]
+    private void Process(in Entity entity, in MoveIntent cmd, in MapRef mapRef,
+        ref TilePosition tilePos, ref MoveSpeed speed, ref TileVelocity vel)
     {
-        if (speed.Value <= 0f || dir.IsZero)
+        if (!cmd.Input.IsZero)
         {
-            vel.Velocity = VelocityVector.Zero;
-            return;
+            // Calcula a velocidade em tiles por segundo
+            vel.Velocity = cmd.Input * speed.Value;
+            
+            // Adiciona o comando de snapshot de movimento, para que o network possa enviar a posição atualizada
+            World.Add<MoveSnapshot>(entity, new MoveSnapshot(cmd.CharId, cmd.Input, tilePos.Position));
         }
         
-        // Calcula a velocidade em tiles por segundo
-        vel.Velocity = dir.Direction.Normalize() * speed.Value;
-        dir.Direction = VelocityVector.Zero; // Reseta a direção após o processamento
+        // Remove o comando de intenção de movimento após processar
+        World.Remove<MoveIntent>(entity);
     }
 
     [Query]
-    [All<TilePosition, TileVelocity, MapRef>]
+    [All<MapRef>]
+    [All<TilePosition>]
+    [All<TileVelocity>]
     private void ProcessMovement([Data] in float dt, in Entity e, ref TilePosition pos, ref TileVelocity vel, ref MapRef map)
     {
         if (dt <= 0f || vel.Velocity.IsZero)
@@ -77,7 +65,7 @@ public sealed partial class GridMovementSystem(World world, BlockingIndex blocki
 
         // 3. Calcula quantos tiles inteiros a entidade deve se mover
         var step = new GameVector2((int)totalDisplacement.X, (int)totalDisplacement.Y);
-
+        
         // 4. Se houver movimento a ser feito, executa-o
         if (!step.IsZero)
         {
@@ -123,6 +111,7 @@ public sealed partial class GridMovementSystem(World world, BlockingIndex blocki
         }
         
         pos.Position = currentPos; // Atualiza a posição final
+        Console.WriteLine($"Entity moved to {pos.Position} on map {mapId}");
     }
 
     private bool IsMoveInvalid(int mapId, GameVector2 target)

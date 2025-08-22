@@ -1,34 +1,33 @@
 using Arch.Core;
+using Arch.System;
+using Arch.System.SourceGenerator;
 using Simulation.Core.Abstractions.In;
 using Simulation.Core.Components;
 using Simulation.Core.Utilities;
 
 namespace Simulation.Core.Systems;
 
-public sealed class TeleportSystem(World world, BlockingIndex blocking, BoundsIndex bounds)
+public sealed partial class TeleportSystem(World world, BlockingIndex blocking, BoundsIndex bounds) 
+    : BaseSystem<World, float>(world: world)
 {
-    public bool Apply(in Requests.Teleport cmd)
+    [Query]
+    [All<TeleportIntent>]
+    [All<MapRef>]
+    [All<TilePosition>]
+    private void Process(in Entity entity, in TeleportIntent cmd, in MapRef mapRef, ref TilePosition tilePos)
     {
-        var e = cmd.Entity;
-        if (!world.IsAlive(e)) return false;
-
         // Bounds check
-        var mapId = cmd.MapId;
-        var target = cmd.Target;
-        bounds.RebuildIfDirty(world);
-        if (bounds.TryGet(mapId, out var bounds1) && !bounds1.Contains(target)) return false;
+        var target = new TilePosition { Position = cmd.Target };
+        bounds.RebuildIfDirty(World);
+        if (bounds.TryGet(mapRef.MapId, out var bounds1) && !bounds1.Contains(target)) return;
 
         // Blocking check
-        blocking.RebuildIfDirty(world);
-        if (blocking.IsBlocked(mapId, target.Position)) return false;
+        blocking.RebuildIfDirty(World);
+        if (blocking.IsBlocked(mapRef.MapId, target.Position)) return;
 
-        // Apply teleport (set map and tile)
-        ref var mapRef = ref world.AddOrGet<MapRef>(e);
-        mapRef.MapId = mapId;
-
-        ref var tilePos = ref world.AddOrGet<TilePosition>(e);
-        tilePos.Position = target.Position;
-
-        return true;
+        tilePos.Position = cmd.Target;
+        
+        // Clear intent after processing
+        World.Remove<TeleportIntent>(entity);
     }
 }

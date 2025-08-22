@@ -2,7 +2,7 @@ using Simulation.Core.Abstractions.In;
 
 namespace Simulation.Core.Adapters.In;
 
-public class SimulationRequests : ISimulationRequests
+public class SimulationIntents : ISimulationIntents
 {
     private readonly Queue<Requests.Move> _moves = new();
     private readonly Queue<Requests.Teleport> _teleports = new();

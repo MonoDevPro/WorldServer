@@ -12,6 +12,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Core.Tests", "Si
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Client", "Simulation.Client\Simulation.Client.csproj", "{6C0C44C7-BB46-4F5E-A7D0-10A1EBA1B0C1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Core.Abstractions", "Simulation.Core.Abstractions\Simulation.Core.Abstractions.csproj", "{C8801063-4306-4B10-A83B-0CCC3F3CB10B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,5 +44,9 @@ Global
 		{6C0C44C7-BB46-4F5E-A7D0-10A1EBA1B0C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6C0C44C7-BB46-4F5E-A7D0-10A1EBA1B0C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6C0C44C7-BB46-4F5E-A7D0-10A1EBA1B0C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8801063-4306-4B10-A83B-0CCC3F3CB10B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8801063-4306-4B10-A83B-0CCC3F3CB10B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8801063-4306-4B10-A83B-0CCC3F3CB10B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8801063-4306-4B10-A83B-0CCC3F3CB10B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

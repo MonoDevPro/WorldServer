@@ -1,49 +1,25 @@
 using System.Diagnostics;
 using Arch.Core;
+using Arch.System;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Simulation.Core.Abstractions.In;
-using Simulation.Core.Systems;
 
 namespace Simulation.Core;
 
 /// <summary>
 /// Serviço hospedado que executa o loop de simulação com timestep fixo e aplica comandos enfileirados.
 /// </summary>
-public class SimulationRunner : BackgroundService
+public class SimulationRunner(
+    ILogger<SimulationRunner> logger,
+    SimulationPipeline systems)
+    : BackgroundService
 {
-    private readonly ILogger<SimulationRunner> _logger;
-    private readonly World _world;
-    private readonly ISimulationRequests _requests;
-    private readonly GridMovementSystem _gridMovement;
-    private readonly TeleportSystem _teleport;
-    private readonly IndexUpdateSystem _indexUpdate;
-    private readonly AttackSystem _attack;
-
     // 20 ticks por segundo (50ms)
     private const double TickSeconds = 1.0 / 20.0;
 
-    public SimulationRunner(
-        ILogger<SimulationRunner> logger,
-        World world,
-        ISimulationRequests requests,
-        GridMovementSystem gridMovement,
-        TeleportSystem teleport,
-        IndexUpdateSystem indexUpdate,
-        AttackSystem attack)
-    {
-        _logger = logger;
-        _world = world;
-        _requests = requests;
-        _gridMovement = gridMovement;
-        _teleport = teleport;
-        _indexUpdate = indexUpdate;
-        _attack = attack;
-    }
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Simulation started");
+        logger.LogInformation("Simulation started");
         var sw = new Stopwatch();
         sw.Start();
         double accumulator = 0;
@@ -55,9 +31,6 @@ public class SimulationRunner : BackgroundService
             var frame = now - last;
             last = now;
             accumulator += frame;
-
-            // Processa comandos antes do tick
-            DrainAndApplyCommands();
 
             while (accumulator >= TickSeconds)
             {
@@ -73,20 +46,9 @@ public class SimulationRunner : BackgroundService
         }
     }
 
-    private void DrainAndApplyCommands()
-    {
-        while (_requests.TryDequeueTeleport(out var tp))
-            _teleport.Apply(tp);
-        while (_requests.TryDequeueMove(out var mv))
-            _gridMovement.Apply(mv);
-        while (_requests.TryDequeueAttack(out var atk))
-            _attack.Apply(atk);
-    }
-
     private void Step(float dt)
     {
-        _gridMovement.Update(dt);
-        _attack.Update(dt);
-        _indexUpdate.Update(dt);
+        foreach (var system in systems)
+            system.Update(dt);
     }
 }
