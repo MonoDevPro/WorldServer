@@ -1,11 +1,7 @@
-using Arch.Core;
-using Arch.System;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Simulation.Core.Abstractions.In;
 using Simulation.Core.Abstractions.In.Factories;
 using Simulation.Core.Abstractions.Out;
-using Simulation.Core.Adapters.In;
 using Simulation.Core.Adapters.Out;
 using Simulation.Core.Factories;
 using Simulation.Core.Systems;
@@ -22,7 +18,6 @@ public static class Services
         services.AddSingleton<ISnapshotEvents>(provider => provider.GetRequiredService<SnapshotEvents>());
         
         // Registering the intent producer service -> Exit from ecs world
-        services.AddSingleton<IntentsEnqueueSystem>();
         services.AddSingleton<IIntentProducer, IntentsEnqueueSystem>(provider => provider.GetRequiredService<IntentsEnqueueSystem>());
         
         // World and indices
@@ -32,18 +27,18 @@ public static class Services
             var worldFactory = provider.GetRequiredService<IWorldFactory>();
             return worldFactory.Create();
         });
-        services.AddSingleton<BlockingIndex>();
-        services.AddSingleton<BoundsIndex>();
-        services.AddSingleton<SpatialHashGrid>();
+        services.AddSingleton<ISpatialIndex, SpatialHashGrid>();
         services.AddSingleton<IEntityIndex, EntityIndex>();
 
         // Systems
+        services.AddSingleton<MapLoaderSystem>();
+        services.AddSingleton<IntentsEnqueueSystem>();
+        services.AddSingleton<IntentsDequeueSystem>();
         services.AddSingleton<SpawnDespawnSystem>();
         services.AddSingleton<GridMovementSystem>();
         services.AddSingleton<TeleportSystem>();
-        services.AddSingleton<IndexUpdateSystem>();
+        services.AddSingleton<SpatialIndexCommitSystem>();
         services.AddSingleton<AttackSystem>();
-        services.AddSingleton<IntentsDequeueSystem>();
         services.AddSingleton<SnapshotPostSystem>();
         
         // Pipeline

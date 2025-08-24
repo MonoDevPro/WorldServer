@@ -1,6 +1,8 @@
 using LiteNetLib;
 using LiteNetLib.Utils;
 
+namespace Simulation.Client;
+
 enum Step { ConnectWait, Teleport, Move, Done }
 
 class Program
@@ -10,7 +12,7 @@ class Program
         var evt = new EventBasedNetListener();
         var client = new NetManager(evt) { IPv6Enabled = false };
         client.Start();
-    var peer = client.Connect("127.0.0.1", 27015, "worldserver-key");
+        var peer = client.Connect("127.0.0.1", 27015, "worldserver-key");
 
         Console.WriteLine("Client connecting...");
 

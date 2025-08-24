@@ -1,10 +1,14 @@
+using System;
 using Arch.Core;
+using Arch.Core.Extensions.Dangerous;
 using Arch.System;
 using Arch.System.SourceGenerator;
+using Simulation.Core.Abstractions.Commons.Components;
+using Simulation.Core.Abstractions.Commons.Components.Attack;
 using Simulation.Core.Abstractions.In;
-using Simulation.Core.Commons;
-using Simulation.Core.Commons.Enums;
-using Simulation.Core.Components;
+using Simulation.Core.Abstractions.Intents.In;
+using Simulation.Core.Abstractions.Intents.Out;
+using Simulation.Core.Abstractions.Out;
 using Simulation.Core.Utilities;
 
 namespace Simulation.Core.Systems;
@@ -12,134 +16,91 @@ namespace Simulation.Core.Systems;
 /// <summary>
 /// Gerencia o ciclo de ataques, desde o início (casting), resolução do dano e tempo de recarga (cooldown).
 /// </summary>
-public sealed partial class AttackSystem(World world, SpatialHashGrid grid) : BaseSystem<World, float>(world)
+public sealed partial class AttackSystem(World world, ISpatialIndex grid, IEntityIndex entityIndex) : BaseSystem<World, float>(world)
 {
-    /// <summary>
-    /// Inicia uma tentativa de ataque com base nos parâmetros fornecidos.
-    /// </summary>
-    public bool Apply(in Requests.Attack cmd)
-    {
-        if (!World.IsAlive(cmd.Attacker) || !World.Has<AttackStats>(cmd.Attacker))
-            return false;
+    private readonly ISpatialIndex _grid = grid;
 
-        ref var state = ref World.AddOrGet<AttackState>(cmd.Attacker);
-        if (state.Phase != AttackPhase.Ready)
-            return false; // Entidade já está atacando ou em cooldown
-
-        // Validações específicas por tipo de ataque
-        switch (cmd.Type)
-        {
-            case AttackType.Melee or AttackType.Ranged:
-                if (!World.IsAlive(cmd.TargetEntity)) return false;
-                break;
-            case AttackType.AreaOfEffect:
-                if (cmd.Radius <= 0) return false;
-                break;
-        }
-
-        // Tudo certo, inicia a fase de casting
-        var stats = World.Get<AttackStats>(cmd.Attacker);
-        state.Phase = AttackPhase.Casting;
-        state.Timer = stats.Duration;
-        state.EnteredCooldownThisFrame = false; // reset flag
-
-        // Adiciona o componente de contexto do ataque
-        World.Add(cmd.Attacker, new AttackCasting
-        {
-            Type = cmd.Type,
-            TargetEntity = cmd.TargetEntity,
-            TargetPosition = cmd.TargetPosition,
-            Radius = cmd.Radius
-        });
-        
-        return true;
-    }
-    
-    /// <summary>
-    /// Processa entidades que estão preparando um ataque (fase de casting).
-    /// </summary>
+    // 1. Iniciação do Ataque: Procura por entidades prontas que receberam a ordem de atacar.
     [Query]
-    [All<AttackState, AttackStats, AttackCasting>]
-    private void ProcessCasting([Data] in float dt, in Entity entity, ref AttackState state, ref AttackStats stats, ref AttackCasting castInfo)
+    [All<AttackIntent>]
+    [All<AttackSpeed>]
+    [None<AttackAction>] // Garante que não estamos atacando já ou em cooldown
+    private void ProcessAttackIntent(in Entity e, in AttackIntent cmd, in AttackSpeed speed)
     {
-        if (state.Phase != AttackPhase.Casting) return;
-        
-        state.Timer -= dt;
-
-        if (state.Timer <= 0)
+        // Cria o componente de ação de ataque com base na velocidade de ataque
+        var attackAction = new AttackAction
         {
-            // O tempo de casting terminou. O ataque é resolvido AGORA!
-            ResolveAttack(in entity, in castInfo);
+            Duration = speed.CastTime,
+            Remaining = speed.CastTime,
+            Cooldown = speed.Cooldown,
+            CooldownRemaining = 0f
+        };
 
-            // Inicia o cooldown
-            state.Phase = AttackPhase.OnCooldown;
-            state.Timer = stats.Cooldown;
-            state.EnteredCooldownThisFrame = true; // marca para não decrementar neste frame
-            
-            // Remove o componente de contexto, limpando o estado
-            World.Remove<AttackCasting>(entity);
-        }
+        // Cria o snapshot de ataque para enviar aos clientes
+        var attackSnapshot = new AttackSnapshot(cmd.AttackerCharId);
+
+        // Adiciona o componente de ação de ataque à entidade atacante
+        World.Add<AttackAction>(e, attackAction);
+
+        // Adiciona o componente de snapshot para resposta aos clientes
+        World.Add<AttackSnapshot>(e, attackSnapshot);
     }
 
-    /// <summary>
-    /// Processa entidades que estão em tempo de recarga.
-    /// </summary>
+    // Agora processamos AttackAction juntamente com posição e referência ao mapa
     [Query]
-    [All<AttackState>]
-    [None<AttackCasting>] // Garante que esta query não rode em quem ainda está em casting
-    private void ProcessCooldown([Data] in float dt, ref AttackState state)
+    [All<AttackAction>]
+    [All<AttackIntent>]   // queremos acesso à intenção original (ex.: alcance, tipo)
+    [All<TilePosition>]
+    [All<MapRef>]
+    private void ProcessAttackAction([Data] in float dt, in Entity e, ref AttackAction a, in AttackIntent intent, in TilePosition pos, in MapRef map)
     {
-        if (state.Phase != AttackPhase.OnCooldown) return;
-
-        if (state.EnteredCooldownThisFrame)
+        if (a.Remaining > 0f)
         {
-            // Pula a subtração neste frame para evitar consumir dt duplo na transição.
-            state.EnteredCooldownThisFrame = false;
-            return;
-        }
+            a.Remaining -= dt;
+            if (a.Remaining <= 0f)
+            {
+                a.Remaining = 0f;
+                a.CooldownRemaining = a.Cooldown;
 
-        state.Timer -= dt;
-        
-        if (state.Timer <= 0)
-        {
-            state.Phase = AttackPhase.Ready;
-            state.Timer = 0f;
-        }
-    }
+                // Attack finished — hora de resolver efeitos (achar alvos)
+                var range = 1; // supondo que AttackIntent tem Range; se não tiver, substitua por constante
 
-    /// <summary>
-    /// Contém a lógica de dano/efeito para cada tipo de ataque.
-    /// </summary>
-    private void ResolveAttack(in Entity attacker, in AttackCasting castInfo)
-    {
-        var attackerMap = World.Get<MapRef>(attacker);
-        
-        switch (castInfo.Type)
-        {
-            case AttackType.Melee:
-            case AttackType.Ranged:
-                if (World.IsAlive(castInfo.TargetEntity))
+                // Proteção caso não exista Range
+                //if (range <= 0) range = 1;
+
+                Console.WriteLine($"Attack finished for entity {e.Id} at {pos.Position}. Searching targets in range {range}");
+
+                // Query spatial para achar entidades no radius (AABB -> caller pode filtrar distância real se quiser)
+                var id = e.Id;
+                _grid.QueryRadius(map.MapId, pos.Position, range, targetEid =>
                 {
-                    // TODO: Aplicar dano/efeito ao castInfo.TargetEntity
-                    // Ex: World.Create(new DamageEvent(castInfo.TargetEntity, 20));
-                    Console.WriteLine($"Entidade {attacker.Id} atacou {castInfo.TargetEntity.Id}!");
-                }
-                break;
+                    if (targetEid == id) return; // ignorar self
 
-            case AttackType.AreaOfEffect:
-                var targets = grid.QueryRadius(attackerMap.MapId, castInfo.TargetPosition, castInfo.Radius);
-                
-                Console.WriteLine($"Entidade {attacker.Id} usou ataque em área em {castInfo.TargetPosition} com {targets.Count} alvos potenciais.");
-                foreach (var target in targets)
-                {
-                    if (target == attacker || !World.IsAlive(target)) continue;
-                    // TODO: Aplicar dano/efeito ao target
-                    // Ex: World.Create(new DamageEvent(target, 15));
-                }
-                
-                // ESSENCIAL: Devolver a lista ao pool para evitar alocação de memória!
-                SpatialHashGrid.ReturnListToPool(targets);
-                break;
+                    if (!entityIndex.TryGetByEntityId(targetEid, out var targetEntity))
+                        return; // entidade não encontrada (pode ter sido removida)
+
+                    // TODO: aplicar lógica de dano, checar afiliações, esquivar, adicionar snapshots, etc.
+                    // Exemplo genérico: logar
+                    Console.WriteLine($" -> potential hit: entity {targetEid}");
+
+                    // Exemplo seguro (se você tiver componentes de vida/dano):
+                    // if (World.Has<Health>(targetEntity)) { World.Get<Health>(targetEntity).Value -= computedDamage; }
+                    //
+                    // Ou emitir um componente "IncomingDamage" / snapshot para rede.
+                });
+
+                // disparar evento AttackFinished(e) / aplicar efeitos finais
+            }
+            // aplicar efeitos durante a execução se necessário
+        }
+        else if (a.CooldownRemaining > 0f)
+        {
+            a.CooldownRemaining -= dt;
+            if (a.CooldownRemaining <= 0f)
+            {
+                // cooldown terminou — remover componente ou resetar
+                World.Remove<AttackAction>(e);
+            }
         }
     }
 }

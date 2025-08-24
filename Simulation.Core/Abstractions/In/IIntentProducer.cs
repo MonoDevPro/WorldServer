@@ -1,3 +1,5 @@
+using Simulation.Core.Abstractions.Intents.In;
+
 namespace Simulation.Core.Abstractions.In;
 
 public interface IIntentProducer

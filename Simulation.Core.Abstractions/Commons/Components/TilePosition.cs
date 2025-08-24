@@ -1,7 +1,6 @@
-using Simulation.Core.Abstractions.Commons;
-using Simulation.Core.Commons;
+using Simulation.Core.Abstractions.Commons.VOs;
 
-namespace Simulation.Core.Components;
+namespace Simulation.Core.Abstractions.Commons.Components;
 
 public struct TilePosition
 {

@@ -2,10 +2,8 @@ using LiteNetLib;
 using LiteNetLib.Utils;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Simulation.Core.Abstractions.In;
+using Simulation.Core.Abstractions.Commons.Components;
 using Simulation.Core.Abstractions.Out;
-using Simulation.Core.Commons;
-using Simulation.Core.Components;
 
 namespace Simulation.Network;
 
@@ -13,7 +11,7 @@ namespace Simulation.Network;
 /// Servidor de rede básico com LiteNetLib que traduz mensagens para Requests da simulação.
 /// Protocolo inicial simples para POC.
 /// </summary>
-public class LiteNetServer(ILogger<LiteNetServer> logger, ISimulationIntents intents, IEntityIndex entityIndex)
+public class LiteNetServer(ILogger<LiteNetServer> logger, IEntityIndex entityIndex)
     : BackgroundService, INetEventListener
 {
     private NetManager? _server;
@@ -70,9 +68,9 @@ public class LiteNetServer(ILogger<LiteNetServer> logger, ISimulationIntents int
     private void RegisterCustomTypes(NetPacketProcessor processor)
     {
         // Registra tipos personalizados, se necessário
-        writer.Register<DirectionInput>();
+        /*writer.Register<DirectionInput>();
         writer.Register<TilePosition>();
-        writer.Register<GameVector2>();
+        writer.Register<GameVector2>();*/
     }
     
 
@@ -92,8 +90,8 @@ public class LiteNetServer(ILogger<LiteNetServer> logger, ISimulationIntents int
                     var dirY = reader.GetInt();
                     if (entityIndex.TryGetByCharId(entityId, out var entity))
                     {
-                        var req = new Requests.Move(entity, mapId, new DirectionInput { Direction = new VelocityVector(dirX, dirY) });
-                        intents.EnqueueMove(req);
+                        //var req = new Requests.Move(entity, mapId, new DirectionInput { Direction = new VelocityVector(dirX, dirY) });
+                        //intents.EnqueueMove(req);
                     }
                     break;
                 }
@@ -106,8 +104,8 @@ public class LiteNetServer(ILogger<LiteNetServer> logger, ISimulationIntents int
                     var y = reader.GetInt();
                     if (entityIndex.TryGetByCharId(entityId, out var entity))
                     {
-                        var req = new Requests.Teleport(entity, mapId, new TilePosition { Position = new GameVector2(x, y) });
-                        intents.EnqueueTeleport(req);
+                        //var req = new Requests.Teleport(entity, mapId, new TilePosition { Position = new GameVector2(x, y) });
+                        //intents.EnqueueTeleport(req);
                     }
                     break;
                 }

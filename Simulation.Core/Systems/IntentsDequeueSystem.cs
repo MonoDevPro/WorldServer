@@ -2,11 +2,10 @@ using Arch.Buffer;
 using Arch.Core;
 using Arch.System;
 using Simulation.Core.Abstractions.Out;
-using Simulation.Core.Utilities;
 
 namespace Simulation.Core.Systems;
 
-public class IntentsDequeueSystem(World world, IntentsEnqueueSystem enqueuer, IEntityIndex indexer, BoundsIndex mapBounds) 
+public class IntentsDequeueSystem(World world, IntentsEnqueueSystem enqueuer, IEntityIndex indexer) 
     : BaseSystem<World, float>(world)
 {
     private readonly CommandBuffer _cmd = new(initialCapacity: 256);
@@ -62,7 +61,7 @@ public class IntentsDequeueSystem(World world, IntentsEnqueueSystem enqueuer, IE
         int processed = 0;
         while (processed < MaxPerTick && enqueuer.AttackQueue.TryDequeue(out var intent))
         {
-            if (!indexer.TryGetByCharId(intent.CharId, out var entity))
+            if (!indexer.TryGetByCharId(intent.AttackerCharId, out var entity))
                 continue; // Entidade não encontrada
             
             if (!World.IsAlive(entity))

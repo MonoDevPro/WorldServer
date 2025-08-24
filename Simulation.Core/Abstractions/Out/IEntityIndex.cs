@@ -12,4 +12,5 @@ public interface IEntityIndex
     void UnregisterByCharId(int characterId);
     void UnregisterEntity(in Entity entity);
     bool TryGetByCharId(int characterId, out Entity entity);
+    bool TryGetByEntityId(int entityId, out Entity entity);
 }

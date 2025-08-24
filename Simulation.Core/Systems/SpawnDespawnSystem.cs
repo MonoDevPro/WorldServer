@@ -2,7 +2,7 @@ using Arch.Core;
 using Arch.Core.Utils;
 using Arch.System;
 using Arch.System.SourceGenerator;
-using Simulation.Core.Components;
+using Simulation.Core.Abstractions.Commons.Components;
 
 namespace Simulation.Core.Systems;
 

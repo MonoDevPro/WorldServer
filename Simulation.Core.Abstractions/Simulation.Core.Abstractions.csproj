@@ -1,9 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
     </PropertyGroup>
+
+    <ItemGroup>
+      <Folder Include="Intents\" />
+      <Folder Include="Map\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Arch.LowLevel" Version="1.1.5" />
+    </ItemGroup>
 
 </Project>
