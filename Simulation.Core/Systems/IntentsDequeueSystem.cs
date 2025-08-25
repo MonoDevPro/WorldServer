@@ -1,5 +1,6 @@
 using Arch.Buffer;
 using Arch.Core;
+using Arch.Core.Extensions;
 using Arch.System;
 using Microsoft.Extensions.Logging;
 using Simulation.Core.Abstractions.Intents.In;
@@ -7,91 +8,85 @@ using Simulation.Core.Abstractions.Out;
 
 namespace Simulation.Core.Systems;
 
-public class IntentsDequeueSystem(ILogger<IntentsDequeueSystem> logger, World world, IntentsEnqueueSystem enqueuer, IEntityIndex indexer) 
-    : BaseSystem<World, float>(world)
+public class IntentsDequeueSystem : BaseSystem<World, float>
 {
     private readonly CommandBuffer _cmd = new(initialCapacity: 256);
+    private readonly ILogger<IntentsDequeueSystem> _logger;
+    private readonly IntentsEnqueueSystem _enqueuer;
+    private readonly IEntityIndex _indexer;
     private const int MaxPerTick = 1024;
+
+    // O construtor estava incompleto no último arquivo, corrigindo a injeção de dependência.
+    public IntentsDequeueSystem(ILogger<IntentsDequeueSystem> logger, World world, IntentsEnqueueSystem enqueuer, IEntityIndex indexer) 
+        : base(world)
+    {
+        _logger = logger;
+        _enqueuer = enqueuer;
+        _indexer = indexer;
+    }
 
     public override void Update(in float delta)
     {
-        // 1) Consumir filas e transformar em comandos no CommandBuffer
         ConsumeMoveIntents();
         ConsumeTeleportIntents();
         ConsumeAttackIntents();
-        ConsumeEnterGameIntents(); // Adicionado
-        ConsumeExitGameIntents();  // Adicionado
+        ConsumeEnterGameIntents();
+        ConsumeExitGameIntents();
 
-        // 2) Aplicar tudo atomicamente no World
         _cmd.Playback(World, dispose: true);
     }
-    
-    // Métodos existentes (ConsumeMoveIntents, etc.) permanecem os mesmos...
-    
+
     private void ConsumeMoveIntents()
     {
         int processed = 0;
-        while (processed < MaxPerTick && enqueuer.MoveQueue.TryDequeue(out var intent))
+        while (processed < MaxPerTick && _enqueuer.MoveQueue.TryDequeue(out var intent))
         {
-            if (!indexer.TryGetByCharId(intent.CharId, out var entity))
-                continue; 
-            
-            if (!World.IsAlive(entity))
-                continue; 
-            
-            _cmd.Set(entity, intent);
-
-            processed++;
+            if (_indexer.TryGetByCharId(intent.CharId, out var entity) && World.IsAlive(entity))
+            {
+                _cmd.Set(entity, intent);
+                processed++;
+            }
         }
     }
 
     private void ConsumeTeleportIntents()
     {
         int processed = 0;
-        while (processed < MaxPerTick && enqueuer.TeleportQueue.TryDequeue(out var intent))
+        while (processed < MaxPerTick && _enqueuer.TeleportQueue.TryDequeue(out var intent))
         {
-            if (!indexer.TryGetByCharId(intent.CharId, out var entity))
-                continue; 
-            
-            if (!World.IsAlive(entity))
-                continue; 
-            
-            _cmd.Set(entity, intent);
-            
-            processed++;
+            if (_indexer.TryGetByCharId(intent.CharId, out var entity) && World.IsAlive(entity))
+            {
+                _cmd.Set(entity, intent);
+                processed++;
+            }
         }
     }
 
     private void ConsumeAttackIntents()
     {
         int processed = 0;
-        while (processed < MaxPerTick && enqueuer.AttackQueue.TryDequeue(out var intent))
+        while (processed < MaxPerTick && _enqueuer.AttackQueue.TryDequeue(out var intent))
         {
-            logger.LogInformation("Processando AttackIntent de CharId {CharId}", intent.AttackerCharId);
-            
-            if (!indexer.TryGetByCharId(intent.AttackerCharId, out var entity))
-                continue; 
-            
-            if (!World.IsAlive(entity))
-                continue; 
-            
-            _cmd.Set(entity, intent);
-            processed++;
+            if (_indexer.TryGetByCharId(intent.AttackerCharId, out var entity) && World.IsAlive(entity))
+            {
+                _logger.LogInformation("Processando AttackIntent de CharId {CharId}", intent.AttackerCharId);
+                _cmd.Set(entity, intent);
+                processed++;
+            }
         }
     }
 
-    // Novos métodos para processar as intenções de ciclo de vida.
     private void ConsumeEnterGameIntents()
     {
         int processed = 0;
-        while (processed < MaxPerTick && enqueuer.EnterGameQueue.TryDequeue(out var intent))
+        while (processed < MaxPerTick && _enqueuer.EnterGameQueue.TryDequeue(out var intent))
         {
-            logger.LogInformation("Processando EnterGameIntent para CharId {CharId}", intent.CharacterId);
+            _logger.LogInformation("Processando EnterGameIntent para CharId {CharId}", intent.CharacterId);
             
-            // Cria uma nova entidade vazia e anexa a intenção.
-            // O PlayerLifecycleSystem irá processar esta entidade.
-            var entity = _cmd.Create([Component<EnterGameIntent>.ComponentType]);
-            _cmd.Set<EnterGameIntent>(entity, intent);
+            // CORREÇÃO: Usando o método Create(intent) que cria a entidade E anexa o componente com seus dados.
+            
+            var entity = _cmd.Create([Component.GetComponentType(typeof(EnterGameIntent))]);
+            entity.Add<EnterGameIntent>(in intent);
             processed++;
         }
     }
@@ -99,12 +94,13 @@ public class IntentsDequeueSystem(ILogger<IntentsDequeueSystem> logger, World wo
     private void ConsumeExitGameIntents()
     {
         int processed = 0;
-        while (processed < MaxPerTick && enqueuer.ExitGameQueue.TryDequeue(out var intent))
+        while (processed < MaxPerTick && _enqueuer.ExitGameQueue.TryDequeue(out var intent))
         {
-            logger.LogInformation("Processando ExitGameIntent para CharId {CharId}", intent.CharacterId);
-            
-            // Semelhante ao EnterGame, cria uma entidade de comando.
-            _cmd.Create([Component<ExitGameIntent>.ComponentType]);
+            _logger.LogInformation("Processando ExitGameIntent para CharId {CharId}", intent.CharacterId);
+
+            // CORREÇÃO: O mesmo aqui, garantindo que o CharacterId seja preservado.
+            var entity = _cmd.Create([Component.GetComponentType(typeof(ExitGameIntent))]);
+            entity.Add<ExitGameIntent>(in intent);
             processed++;
         }
     }

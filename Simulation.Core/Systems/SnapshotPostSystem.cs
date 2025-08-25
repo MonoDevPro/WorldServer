@@ -4,7 +4,6 @@ using Arch.System;
 using Arch.System.SourceGenerator;
 using Simulation.Core.Abstractions.Commons.Components;
 using Simulation.Core.Abstractions.Intents.Out;
-using Simulation.Core.Abstractions.Out;
 
 namespace Simulation.Core.Systems;
 
