@@ -46,7 +46,7 @@ public static class Services
         services.AddSingleton<SimulationPipeline>();
         
         // Simulation runner
-        services.AddHostedService<SimulationRunner>();
+        services.AddSingleton<SimulationRunner>();
 
         return services;
     }

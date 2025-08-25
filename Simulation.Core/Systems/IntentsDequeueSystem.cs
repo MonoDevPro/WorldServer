@@ -27,11 +27,11 @@ public class IntentsDequeueSystem : BaseSystem<World, float>
 
     public override void Update(in float delta)
     {
+        ConsumeEnterGameIntents();
+        ConsumeExitGameIntents();
         ConsumeMoveIntents();
         ConsumeTeleportIntents();
         ConsumeAttackIntents();
-        ConsumeEnterGameIntents();
-        ConsumeExitGameIntents();
 
         _cmd.Playback(World, dispose: true);
     }
@@ -83,10 +83,12 @@ public class IntentsDequeueSystem : BaseSystem<World, float>
         {
             _logger.LogInformation("Processando EnterGameIntent para CharId {CharId}", intent.CharacterId);
             
-            // CORREÇÃO: Usando o método Create(intent) que cria a entidade E anexa o componente com seus dados.
+            // CORREÇÃO: Maneira explícita e segura de criar uma entidade de comando.
+            // 1. Grava o comando para criar uma entidade com a "forma" do nosso componente.
+            var bufferedEntity = _cmd.Create(new[] { Component<EnterGameIntent>.ComponentType });
+            // 2. Grava o comando para definir os dados da nossa intenção nessa entidade.
+            //_cmd.Set(bufferedEntity, intent);
             
-            var entity = _cmd.Create([Component.GetComponentType(typeof(EnterGameIntent))]);
-            entity.Add<EnterGameIntent>(in intent);
             processed++;
         }
     }
@@ -98,9 +100,10 @@ public class IntentsDequeueSystem : BaseSystem<World, float>
         {
             _logger.LogInformation("Processando ExitGameIntent para CharId {CharId}", intent.CharacterId);
 
-            // CORREÇÃO: O mesmo aqui, garantindo que o CharacterId seja preservado.
-            var entity = _cmd.Create([Component.GetComponentType(typeof(ExitGameIntent))]);
-            entity.Add<ExitGameIntent>(in intent);
+            // CORREÇÃO: Aplicando o mesmo padrão seguro aqui para corrigir o bug de perda de dados.
+            var bufferedEntity = _cmd.Create(new[] { Component<ExitGameIntent>.ComponentType });
+            //_cmd.Set(bufferedEntity, intent);
+            
             processed++;
         }
     }

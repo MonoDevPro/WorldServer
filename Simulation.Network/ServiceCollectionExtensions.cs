@@ -6,7 +6,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddSimulationNetwork(this IServiceCollection services)
     {
-        services.AddHostedService<LiteNetServer>();
+        services.AddSingleton<NetworkSystem>();
         return services;
     }
 }

@@ -9,46 +9,26 @@ namespace Simulation.Core;
 /// <summary>
 /// Serviço hospedado que executa o loop de simulação com timestep fixo e aplica comandos enfileirados.
 /// </summary>
-public class SimulationRunner(
-    ILogger<SimulationRunner> logger,
-    SimulationPipeline systems)
-    : BackgroundService
+public class SimulationRunner
 {
-    // 20 ticks por segundo (50ms)
-    private const double TickSeconds = 1.0 / 20.0;
+    private readonly SimulationPipeline _systems;
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    /// <summary>
+    /// Serviço hospedado que executa o loop de simulação com timestep fixo e aplica comandos enfileirados.
+    /// </summary>
+    public SimulationRunner(ILogger<SimulationRunner> logger,
+        SimulationPipeline systems)
     {
-        logger.LogInformation("Simulation started");
-        var sw = new Stopwatch();
-        sw.Start();
-        double accumulator = 0;
-        var last = sw.Elapsed.TotalSeconds;
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            var now = sw.Elapsed.TotalSeconds;
-            var frame = now - last;
-            last = now;
-            accumulator += frame;
-
-            while (accumulator >= TickSeconds)
-            {
-                Step((float)TickSeconds);
-                accumulator -= TickSeconds;
-            }
-
-            // Dorme um pouquinho para não ocupar 100% da CPU
-            var sleep = Math.Max(0, TickSeconds - accumulator);
-            var delayMs = (int)(sleep * 1000.0 / 2); // meio tick de folga
-            if (delayMs > 0)
-                await Task.Delay(delayMs, stoppingToken).ConfigureAwait(false);
-        }
+        _systems = systems;
+        
+        systems.Configure();
     }
+
+    public void Update(float dt) => Step(dt);
 
     private void Step(float dt)
     {
-        foreach (var system in systems)
+        foreach (var system in _systems)
             system.Update(dt);
     }
 }

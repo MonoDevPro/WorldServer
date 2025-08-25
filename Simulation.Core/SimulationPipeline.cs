@@ -5,9 +5,9 @@ using Simulation.Core.Systems;
 
 namespace Simulation.Core;
 
-public class SimulationPipeline : List<BaseSystem<World, float>>
+public class SimulationPipeline(IServiceProvider provider) : List<BaseSystem<World, float>>
 {
-    public SimulationPipeline(IServiceProvider provider)
+    public virtual void Configure()
     {
         // --- In ---
         // 1. Enfileira comandos vindos de fora do mundo ECS.
