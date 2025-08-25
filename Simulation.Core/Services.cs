@@ -34,6 +34,7 @@ public static class Services
         services.AddSingleton<MapLoaderSystem>();
         services.AddSingleton<IntentsEnqueueSystem>();
         services.AddSingleton<IntentsDequeueSystem>();
+        services.AddSingleton<PlayerLifecycleSystem>(); // Adicionado
         services.AddSingleton<SpawnDespawnSystem>();
         services.AddSingleton<GridMovementSystem>();
         services.AddSingleton<TeleportSystem>();

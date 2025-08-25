@@ -22,6 +22,7 @@ public class SimulationPipeline : List<BaseSystem<World, float>>
         Add(provider.GetRequiredService<MapLoaderSystem>());
         
         // --- Lógica Principal da Simulação ---
+        Add(provider.GetRequiredService<PlayerLifecycleSystem>()); // Adicionado
         Add(provider.GetRequiredService<SpawnDespawnSystem>());
         Add(provider.GetRequiredService<GridMovementSystem>());
         Add(provider.GetRequiredService<TeleportSystem>());
