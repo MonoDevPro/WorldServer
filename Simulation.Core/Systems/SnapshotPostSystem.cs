@@ -19,4 +19,14 @@ public partial class SnapshotPostSystem(World world)
         EventBus.Send(snapshot);
         World.Remove<MoveSnapshot>(entity);
     }
+
+    [Query]
+    [All<AttackSnapshot>]
+    [All<MapRef>]
+    [All<TilePosition>]
+    private void ProcessAttackSnapshot(in Entity entity, in AttackSnapshot snapshot, in MapRef mapRef)
+    {
+        EventBus.Send(snapshot);
+        World.Remove<AttackSnapshot>(entity);
+    }
 }

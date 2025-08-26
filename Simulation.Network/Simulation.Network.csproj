@@ -10,4 +10,8 @@
         <ProjectReference Include="../Simulation.Core/Simulation.Core.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="LiteNetLib" Version="1.3.1" />
+    </ItemGroup>
+
 </Project>

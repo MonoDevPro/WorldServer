@@ -3,7 +3,6 @@ using Arch.System;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using Microsoft.Extensions.Logging;
-using Simulation.Core.Abstractions.Commons.VOs;
 using Simulation.Core.Abstractions.In;
 using Simulation.Core.Abstractions.Intents.In;
 using Simulation.Core.Abstractions.Intents.Out;
