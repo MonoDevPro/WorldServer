@@ -176,7 +176,7 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
         _writer.Reset();
         _processor.WriteNetSerializable(_writer, ref snapshot);
         _peersByCharId[snapshot.CharId].Send(_writer, DeliveryMethod.ReliableOrdered);
-        _logger.LogInformation("Enviando CharSnapshot para CharId: {CharId}", snapshot.CharId);
+        _logger.LogInformation("Enviando GameSnapshot para CharId: {CharId}", snapshot.CharId);
     }
     
     private void SendCharSnapshot(CharSnapshot snapshot)

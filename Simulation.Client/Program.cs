@@ -20,9 +20,12 @@ class Program
     private static EventBasedNetListener? _listener;
     private static NetPeer? _peer;
     private static readonly NetPacketProcessor PacketProcessor = new NetPacketProcessor();
+    
+    // Adicione um dicionário para guardar os outros jogadores
+    private static readonly Dictionary<int, GameVector2> OtherPlayers = new();
 
     // player
-    private const int CharId = 1;
+    private static int CharId = -1;
 
     // authoritative / predicted positions
     private static GameVector2 currentPosFromServer = new GameVector2(10, 10);
@@ -51,8 +54,22 @@ class Program
         _listener.PeerConnectedEvent += p =>
         {
             Console.WriteLine($"Conectado ao servidor {networkOptions.ServerAddress}:{networkOptions.Port}");
+            
+            Console.Write($"Digite seu CharId (número inteiro): ");
+            var input = Console.ReadLine();
+            if (!int.TryParse(input, out CharId))
+            {
+                CharId = -1; // Valor inválido
+            }
+            
+            if (CharId <= 0)
+            {
+                Console.WriteLine("CharId inválido. Encerrando cliente.");
+                _client.Stop();
+                Environment.Exit(0);
+            }
+            
             SendEnterGame(p, CharId);
-            _state = ClientState.InGame;
             _peer = p;
         };
 
@@ -62,6 +79,8 @@ class Program
             _state = ClientState.Connecting;
             currentPosFromServer = new GameVector2(10, 10);
             predictedPos = currentPosFromServer;
+            OtherPlayers.Clear();
+            CharId = -1;
         };
 
         _listener.NetworkErrorEvent += (ep, err) => Console.WriteLine($"[ERRO DE REDE] {err}");
@@ -72,6 +91,9 @@ class Program
             dataReader.Recycle();
         };
 
+        PacketProcessor.SubscribeNetSerializable<GameSnapshot>(HandleGameSnapshot); 
+        PacketProcessor.SubscribeNetSerializable<CharSnapshot>(HandleCharSnapshot);
+        PacketProcessor.SubscribeNetSerializable<CharExitSnapshot>(HandleCharExitSnapshot);
         PacketProcessor.SubscribeNetSerializable<MoveSnapshot>(HandleMoveSnapshot);
         PacketProcessor.SubscribeNetSerializable<AttackSnapshot>(HandleAttackSnapshot);
 
@@ -91,6 +113,8 @@ class Program
 
             if (_state == ClientState.InGame)
             {
+                Console.WriteLine($"[STATUS] Posição Autoritativa: ({currentPosFromServer.X},{currentPosFromServer.Y}) | Posição Predita: ({predictedPos.X},{predictedPos.Y})");
+                
                 // keyboard input
                 if (Console.KeyAvailable)
                 {
@@ -118,34 +142,81 @@ class Program
                     // apply locally for immediate feedback (prediction)
                     predictedPos += dir; // velocidade fixa 1 unidade grid por input
                     
-                    Console.WriteLine($"[PREDICTION] Nova posição predita: {predictedPos.X},{predictedPos.Y}");
+                    Console.WriteLine($"[PREDICTION] Nova posição predi ta: {predictedPos.X},{predictedPos.Y}");
                 }
             }
-
             Thread.Sleep(10);
         }
-
-
+        
         _client.Stop();
         Console.WriteLine("Cliente finalizado.");
     }
+    
+    // Em Simulation.Client/Program.cs
 
+    static void HandleGameSnapshot(GameSnapshot snapshot)
+    {
+        Console.WriteLine($"[GAME STATE] Bem-vindo ao mapa {snapshot.MapId}. Você é o CharId: {snapshot.CharId}");
+        _state = ClientState.InGame;
+
+        OtherPlayers.Clear(); // Limpa a lista antiga
+        foreach (var charSnap in snapshot.AllEntities)
+        {
+            if (charSnap.CharId.CharacterId != CharId) // Se não for o nosso próprio personagem
+            {
+                OtherPlayers[charSnap.CharId.CharacterId] = charSnap.Position.Position;
+                Console.WriteLine($" -> Jogador {charSnap.Info.Name} (ID:{charSnap.CharId.CharacterId}) está em ({charSnap.Position.Position.X},{charSnap.Position.Position.Y})");
+            }
+            else // Se for o nosso, atualiza nossa posição autoritativa
+            {
+                currentPosFromServer = charSnap.Position.Position;
+                predictedPos = currentPosFromServer;
+                Console.WriteLine($" -> Sua posição inicial é: ({currentPosFromServer.X},{currentPosFromServer.Y})");
+            }
+        }
+    }
+    
+    // Em Simulation.Client/Program.cs
+    static void HandleCharSnapshot(CharSnapshot snapshot)
+    {
+        if (snapshot.CharId.CharacterId == CharId) return; // Ignora nosso próprio snapshot aqui
+
+        OtherPlayers[snapshot.CharId.CharacterId] = snapshot.Position.Position;
+        Console.WriteLine($"[ENTROU] Jogador {snapshot.Info.Name} (ID:{snapshot.CharId.CharacterId}) entrou no mapa em ({snapshot.Position.Position.X},{snapshot.Position.Position.Y})");
+    }
+    
+    // Em Simulation.Client/Program.cs
+    static void HandleCharExitSnapshot(CharExitSnapshot snapshot)
+    {
+        if (OtherPlayers.Remove(snapshot.CharId))
+        {
+            Console.WriteLine($"[SAIU] Jogador com CharId {snapshot.CharId} desconectou-se.");
+        }
+    }
+
+    // Em Simulation.Client/Program.cs
     static void HandleMoveSnapshot(MoveSnapshot snapshot)
     {
-        if (snapshot.CharId != CharId) 
-            return;
-
-        // authoritative position from server
-        currentPosFromServer = snapshot.NewPosition;
-        
-        // Simple reconciliation: if the predicted position diverges from the server's authoritative position, correct it
-        if (predictedPos != currentPosFromServer)
+        // Se o snapshot é para o nosso personagem
+        if (snapshot.CharId == CharId) 
         {
-            Console.WriteLine($"[RECONCILIATION] Posicao corrigida do servidor: ({currentPosFromServer.X},{currentPosFromServer.Y})");
-            predictedPos = currentPosFromServer;
+            currentPosFromServer = snapshot.NewPosition;
+            if (predictedPos != currentPosFromServer)
+            {
+                Console.WriteLine($"[RECONCILIATION] Posição corrigida do servidor: ({currentPosFromServer.X},{currentPosFromServer.Y})");
+                predictedPos = currentPosFromServer;
+            }
+            else
+            {
+                Console.WriteLine($"[SNAPSHOT] Posição confirmada pelo servidor: ({currentPosFromServer.X},{currentPosFromServer.Y})");
+            }
         }
-        else
-            Console.WriteLine($"[SNAPSHOT] Posicao confirmada pelo servidor: ({currentPosFromServer.X},{currentPosFromServer.Y})");
+        // Se o snapshot é para outro jogador
+        else if (OtherPlayers.ContainsKey(snapshot.CharId))
+        {
+            OtherPlayers[snapshot.CharId] = snapshot.NewPosition;
+            Console.WriteLine($"[MOVIMENTO] Jogador {snapshot.CharId} moveu-se para ({snapshot.NewPosition.X},{snapshot.NewPosition.Y})");
+        }
     }
 
     static void HandleAttackSnapshot(AttackSnapshot snapshot)
