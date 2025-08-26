@@ -19,8 +19,6 @@ namespace Simulation.Core.Systems;
 public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
     : BaseSystem<World, float>(world)
 {
-    // Accumulador fracionário por entidade para mapear tiles/s em passos discretos
-    private readonly Dictionary<int, VelocityVector> _accumulators = new();
     private readonly ISpatialIndex _grid = grid;
 
     [Query]
@@ -46,26 +44,20 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
     [All<MapRef>]
     [All<TilePosition>]
     [All<TileVelocity>]
-    private void ProcessMovement([Data] in float dt, in Entity e, ref TilePosition pos, ref TileVelocity vel, ref MapRef map)
+    [All<MoveAccumulator>]
+    private void ProcessMovement([Data] in float dt, in Entity e, 
+        ref TilePosition pos, ref TileVelocity vel, ref MapRef map, ref MoveAccumulator acc)
     {
         if (dt <= 0f || vel.Velocity.IsZero)
         {
             // Se a velocidade for zerada, removemos o acumulador para limpar o estado
-            _accumulators.Remove(e.Id);
+            acc.Value = VelocityVector.Zero;
             return;
         }
-
-        // Garantir que a entidade esteja registrada no índice espacial
-        // (Unregister é idempotente / seguro)
-        try { _grid.Unregister(e.Id, map.MapId); } catch { }
-        _grid.Register(e.Id, map.MapId, pos.Position);
-
-        // 1. Pega o valor acumulado da última atualização (ou zero)
-        if (!_accumulators.TryGetValue(e.Id, out var accumulated))
-            accumulated = VelocityVector.Zero;
-
-        // 2. Adiciona o deslocamento do frame atual ao acumulador
-        var totalDisplacement = accumulated + (vel.Velocity * dt);
+        
+        // 1. O valor acumulado já está em 'acc.Value'
+        // 2. Adiciona o deslocamento do frame atual
+        var totalDisplacement = acc.Value + (vel.Velocity * dt);
 
         // 3. Calcula quantos tiles inteiros a entidade deve se mover
         var step = new GameVector2((int)totalDisplacement.X, (int)totalDisplacement.Y);
@@ -78,8 +70,8 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
             totalDisplacement -= new VelocityVector(step.X, step.Y);
         }
 
-        // 5. Guarda de volta a parte fracionária para o próximo frame
-        _accumulators[e.Id] = totalDisplacement;
+        // 5. Guarda de volta a parte fracionária
+        acc.Value = totalDisplacement;
     }
 
     private void TryMove(Entity entity, ref TilePosition pos, int mapId, GameVector2 step)

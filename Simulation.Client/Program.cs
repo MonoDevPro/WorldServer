@@ -1,9 +1,11 @@
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using Simulation.Core.Abstractions.Commons.VOs;
 using Simulation.Core.Abstractions.Intents.In;
 using Simulation.Core.Abstractions.Intents.Out;
+using Simulation.Network;
 
 namespace Simulation.Client;
 
@@ -20,18 +22,27 @@ class Program
 
     static void Main()
     {
+        // --- Carrega a configuração ---
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false)
+            .Build();
+        var networkOptions = new NetworkOptions();
+        configuration.GetSection(NetworkOptions.SectionName).Bind(networkOptions);
+        // --- Fim da seção de configuração ---
+        
         var listener = new EventBasedNetListener();
         var client = new NetManager(listener) { UnsyncedEvents = false, IPv6Enabled = false };
         client.Start();
-        var peer = client.Connect("127.0.0.1", 27015, "worldserver-key");
+        var peer = client.Connect(networkOptions.ServerAddress, networkOptions.Port, networkOptions.ConnectionKey);
 
         Console.WriteLine("Cliente de Testes Iniciado.");
         Console.WriteLine("Tentando conectar ao servidor...");
         
         listener.PeerConnectedEvent += p =>
         {
-            Console.WriteLine($"[CONECTADO] ao servidor: {p.Address}");
-            Console.WriteLine("Enviando comando para entrar no jogo...");
+            Console.WriteLine("Cliente de Testes Iniciado.");
+            Console.WriteLine("Tentando conectar ao servidor {0}:{1}...", networkOptions.ServerAddress, networkOptions.Port);
             SendEnterGame(p, CharId);
             _state = ClientState.InGame; // CORREÇÃO: Altera o estado para InGame APÓS enviar o EnterGame
         };

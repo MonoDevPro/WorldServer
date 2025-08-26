@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -5,15 +6,24 @@ using Simulation.Console;
 using Simulation.Core;
 using Simulation.Network;
 
-// 1) Construção do container
+// --- Início da nova seção de configuração ---
+// 1) Construção da configuração
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(AppContext.BaseDirectory) // Garante que ele encontre o JSON
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .Build();
+// --- Fim da nova seção de configuração ---
+
+// 2) Construção do container
 var services = new ServiceCollection();
 services.AddLogging(builder => builder.AddConsole());
+
+// --- Registra as opções de configuração ---
+services.Configure<NetworkOptions>(configuration.GetSection(NetworkOptions.SectionName));
+
 services.AddSimulationCore();
 services.AddSimulationNetwork();
-
 services.AddSingleton<SimulationLoop>();
-
-// se SystemPipelineAdapter depende do service provider, registre via factory:
 services.Replace(ServiceDescriptor.Singleton<SimulationPipeline>(sp => new SystemPipelineAdapter(sp)));
 
 // Alternativa (recomendada caso o adapter tenha dependências resolvíveis):

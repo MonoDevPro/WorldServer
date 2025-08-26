@@ -9,6 +9,7 @@ using Simulation.Core.Abstractions.Commons.Components.Move;
 using Simulation.Core.Abstractions.Intents.In;
 using Simulation.Core.Abstractions.Out;
 using Simulation.Core.Abstractions.Commons.VOs;
+using Simulation.Core.Factories;
 
 namespace Simulation.Core.Systems;
 
@@ -34,13 +35,10 @@ public sealed partial class PlayerLifecycleSystem : BaseSystem<World, float>
             return;
         }
 
-        var playerEntity = World.Create(
-            new CharId { CharacterId = intent.CharacterId },
-            new MapRef { MapId = 1 },
-            new TilePosition { Position = new GameVector2(10, 10) },
-            new TileVelocity(),
-            new MoveSpeed { Value = 0.5f },
-            new AttackSpeed { CastTime = 0.5f, Cooldown = 1.5f }
+        var playerEntity = PlayerFactory.Create(
+            World, 
+            intent.CharacterId, 
+            new GameVector2(10, 10)
         );
 
         _entityIndex.Register(intent.CharacterId, playerEntity);

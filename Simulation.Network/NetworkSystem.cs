@@ -3,6 +3,7 @@ using Arch.System;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Simulation.Core.Abstractions.In;
 using Simulation.Core.Abstractions.Intents.In;
 using Simulation.Core.Abstractions.Intents.Out;
@@ -15,6 +16,7 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
     private NetManager? _server;
     private readonly NetDataWriter _writer = new();
     private readonly NetPacketProcessor _processor = new();
+    private readonly NetworkOptions _options;
     
     private bool _started;
     private readonly ILogger<NetworkSystem> _logger;
@@ -24,11 +26,13 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
     public NetworkSystem(ILogger<NetworkSystem> logger,
         IIntentProducer intentProducer,
         ISnapshotEvents snapshotEvents,
+        IOptions<NetworkOptions> options,
         World world) : base(world)
     {
         _logger = logger;
         _intentProducer = intentProducer;
         _snapshotEvents = snapshotEvents;
+        _options = options.Value;
         
         // Registrar handlers - SubscribeReusable evita alocações
         _processor.SubscribeNetSerializable<EnterGameIntent, NetPeer>((intent, peer) =>
@@ -80,16 +84,14 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
             IPv6Enabled = false
         };
         
-        
-        
-        if (!_server.Start(27015))
+        if (!_server.Start(_options.Port))
         {
-            _logger.LogError("Falha ao iniciar o servidor LiteNetLib na porta {Port}", 27015);
+            _logger.LogError("Falha ao iniciar o servidor LiteNetLib na porta {Port}", _options.Port);
             _server = null;
             return false;
         }
 
-        _logger.LogInformation("Servidor LiteNetLib escutando na porta {Port}", 27015);
+        _logger.LogInformation("Servidor LiteNetLib escutando na porta {Port}", _options.Port);
         _started = true;
         return true;
     }
@@ -122,7 +124,7 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
     public void OnNetworkError(System.Net.IPEndPoint endPoint, System.Net.Sockets.SocketError socketError)
         => _logger.LogWarning("Erro de rede {Error} de {EndPoint}", socketError, endPoint);
     
-    public void OnConnectionRequest(ConnectionRequest request) => request.AcceptIfKey("worldserver-key");
+    public void OnConnectionRequest(ConnectionRequest request) => request.AcceptIfKey(_options.ConnectionKey);
 
     public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
