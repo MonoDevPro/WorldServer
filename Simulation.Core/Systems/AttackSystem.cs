@@ -39,18 +39,17 @@ public sealed partial class AttackSystem : BaseSystem<World, float>
         };
         var attackSnapshot = new AttackSnapshot(cmd.AttackerCharId);
         
-        World.Add<AttackAction>(e, attackAction);
-        World.Add<AttackSnapshot>(e, attackSnapshot);
+        World.AddRange(e, new Span<object>([attackAction, attackSnapshot]));
+        World.Remove<AttackIntent>(e);
         
         _logger.LogInformation("Ataque iniciado pela entidade {EntityId} (CharId: {CharId})", e.Id, cmd.AttackerCharId);
     }
     
     [Query]
     [All<AttackAction>]
-    [All<AttackIntent>]
     [All<TilePosition>]
     [All<MapRef>]
-    private void ProcessAttackAction([Data] in float dt, in Entity e, ref AttackAction a, in AttackIntent intent, in TilePosition pos, in MapRef map)
+    private void ProcessAttackAction([Data] in float dt, in Entity e, ref AttackAction a, in TilePosition pos, in MapRef map)
     {
         if (a.Remaining > 0f)
         {

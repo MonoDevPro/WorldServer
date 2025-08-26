@@ -5,8 +5,8 @@ namespace Simulation.Core.Factories;
 
 internal sealed class WorldFactory : IWorldFactory
 {
-    public World Create(int entityCapacity = 10_000)
+    public World Create()
     {
-        return World.Create(entityCapacity);
+        return World.Create();
     }
 }

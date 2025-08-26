@@ -39,7 +39,7 @@ public sealed partial class PlayerLifecycleSystem : BaseSystem<World, float>
             new MapRef { MapId = 1 },
             new TilePosition { Position = new GameVector2(10, 10) },
             new TileVelocity(),
-            new MoveSpeed { Value = 5.0f },
+            new MoveSpeed { Value = 0.5f },
             new AttackSpeed { CastTime = 0.5f, Cooldown = 1.5f }
         );
 

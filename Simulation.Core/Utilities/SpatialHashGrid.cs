@@ -4,7 +4,7 @@ using Simulation.Core.Abstractions.Out;
 
 namespace Simulation.Core.Utilities;
 
-public interface ISpatialIndex
+public interface ISpatialIndex : IDisposable
 {
     void Register(int entityId, int mapId, GameVector2 tilePos);
     void UpdatePosition(int entityId, int mapId, GameVector2 oldPos, GameVector2 newPos);
@@ -29,6 +29,8 @@ public class SpatialHashGrid : ISpatialIndex
     private readonly Dictionary<int, Dictionary<int, List<int>>> _overflow = new();
     private readonly Dictionary<int, int> _entityToSlot = new();
     private readonly Dictionary<int, int> _entityToMap = new();
+    
+    private bool _disposed = false; // Flag para detectar chamadas redundantes
 
     private const int FILLER = -1;
 
@@ -295,4 +297,47 @@ public class SpatialHashGrid : ISpatialIndex
     // New small API:
     public bool IsRegistered(int entityId) => _entityToMap.ContainsKey(entityId);
     public int? GetEntityMap(int entityId) => _entityToMap.TryGetValue(entityId, out var m) ? m : (int?)null;
+    
+    // --- IMPLEMENTAÇÃO DO IDISPOSABLE ---
+
+    public void Dispose()
+    {
+        // Chama o método de descarte com 'true' para indicar que foi chamado pelo usuário
+        Dispose(true);
+        // Informa ao Garbage Collector que a finalização não é mais necessária
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        // Verifica se já foi descartado
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (disposing)
+        {
+            // Libera recursos gerenciados (como o JaggedArray)
+            foreach (var jaggedArray in _mapBuckets.Values)
+                jaggedArray?.Clear();
+            
+            _mapBuckets.Clear();
+            _overflow.Clear();
+            _entityToSlot.Clear();
+            _entityToMap.Clear();
+            _pending.Clear();
+        }
+
+        // Marque como descartado
+        _disposed = true;
+    }
+
+    // Finalizador (Destructor) - chamado pelo Garbage Collector
+    ~SpatialHashGrid()
+    {
+        // Chama o método de descarte com 'false' porque não estamos liberando
+        // recursos gerenciados (eles podem já ter sido finalizados)
+        Dispose(false);
+    }
 }

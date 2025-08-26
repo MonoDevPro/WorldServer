@@ -87,9 +87,7 @@ public class MapData
         if (dto == null) throw new ArgumentNullException(nameof(dto));
         var map = new MapData(dto.MapId, dto.Name ?? string.Empty, dto.Width, dto.Height, dto.UsePadded);
         if (dto.TilesRowMajor != null)
-        {
             map.PopulateFromRowMajor(dto.TilesRowMajor, dto.CollisionRowMajor);
-        }
         return map;
     }
 

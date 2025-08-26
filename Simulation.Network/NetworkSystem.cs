@@ -108,6 +108,12 @@ public class NetworkSystem(
                 }
                 case 1: // Move
                 {
+                    if (peer.Tag == null)
+                    {
+                        logger.LogWarning("MoveIntent recebido de um peer não autenticado. Ignorando.");
+                        return;
+                    }
+                    
                     var charId = reader.GetInt();
                     var dirX = reader.GetInt();
                     var dirY = reader.GetInt();
@@ -118,6 +124,12 @@ public class NetworkSystem(
                 }
                 case 2: // Attack
                 {
+                    if (peer.Tag == null)
+                    {
+                        logger.LogWarning("AttackIntent recebido de um peer não autenticado. Ignorando.");
+                        return;
+                    }
+                    
                     var charId = reader.GetInt();
                     logger.LogInformation("Recebido Attack. Enfileirando AttackIntent para o CharId: {CharId}", charId);
                     intentProducer.EnqueueAttackIntent(new AttackIntent(charId));

@@ -130,7 +130,6 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
         dirty.New = newPos;
         dirty.MapId = mapId;
         _grid.EnqueueUpdate(entity.Id, mapId, old, newPos);
-
         
         Console.WriteLine($"Entity {entity.Id} moved to {pos.Position} on map {mapId}");
     }
