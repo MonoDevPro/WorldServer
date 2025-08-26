@@ -46,7 +46,10 @@ public sealed partial class AttackSystem : BaseSystem<World, float>
     }
     
     [Query]
-    [All<AttackAction>, All<AttackIntent>, All<TilePosition>, All<MapRef>]
+    [All<AttackAction>]
+    [All<AttackIntent>]
+    [All<TilePosition>]
+    [All<MapRef>]
     private void ProcessAttackAction([Data] in float dt, in Entity e, ref AttackAction a, in AttackIntent intent, in TilePosition pos, in MapRef map)
     {
         if (a.Remaining > 0f)

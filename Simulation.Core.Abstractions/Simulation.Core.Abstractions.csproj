@@ -7,8 +7,8 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <Folder Include="Commons\Interfaces\" />
       <Folder Include="Intents\" />
-      <Folder Include="Map\" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,3 +1,5 @@
+using Arch.Core;
+using Arch.System;
 using Microsoft.Extensions.DependencyInjection;
 using Simulation.Core.Abstractions.In;
 using Simulation.Core.Abstractions.In.Factories;
@@ -34,7 +36,7 @@ public static class Services
         services.AddSingleton<MapLoaderSystem>();
         services.AddSingleton<IntentsEnqueueSystem>();
         services.AddSingleton<IntentsDequeueSystem>();
-        services.AddSingleton<PlayerLifecycleSystem>(); // Adicionado
+        services.AddSingleton<PlayerLifecycleSystem>();
         services.AddSingleton<SpawnDespawnSystem>();
         services.AddSingleton<GridMovementSystem>();
         services.AddSingleton<TeleportSystem>();

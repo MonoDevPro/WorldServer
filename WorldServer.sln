@@ -1,6 +1,6 @@
 ﻿Microsoft Visual Studio Solution File, Format Version 12.00
 #
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Worker", "Simulation.Worker\Simulation.Worker.csproj", "{839B41E5-455D-4A44-AB1A-5629289B6324}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Console", "Simulation.Console\Simulation.Console.csproj", "{839B41E5-455D-4A44-AB1A-5629289B6324}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Core", "Simulation.Core\Simulation.Core.csproj", "{2FD8C007-F518-4200-BBF9-ADB4DBD465F7}"
 EndProject
