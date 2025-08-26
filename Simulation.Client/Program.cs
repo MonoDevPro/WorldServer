@@ -1,6 +1,9 @@
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System.Diagnostics;
+using Simulation.Core.Abstractions.Commons.VOs;
+using Simulation.Core.Abstractions.Intents.In;
+using Simulation.Core.Abstractions.Intents.Out;
 
 namespace Simulation.Client;
 
@@ -11,6 +14,9 @@ class Program
 {
     private const int CharId = 1; 
     private static volatile ClientState _state = ClientState.Connecting; // Estado inicial
+    
+    private static readonly NetPacketProcessor PacketProcessor = new NetPacketProcessor();
+    
 
     static void Main()
     {
@@ -24,7 +30,7 @@ class Program
         
         listener.PeerConnectedEvent += p =>
         {
-            Console.WriteLine($"[CONECTADO] ao servidor: {p.EndPoint}");
+            Console.WriteLine($"[CONECTADO] ao servidor: {p.Address}");
             Console.WriteLine("Enviando comando para entrar no jogo...");
             SendEnterGame(p, CharId);
             _state = ClientState.InGame; // CORREÇÃO: Altera o estado para InGame APÓS enviar o EnterGame
@@ -40,9 +46,12 @@ class Program
 
         listener.NetworkReceiveEvent += (fromPeer, dataReader, channel, deliveryMethod) =>
         {
-            HandleServerMessage(dataReader);
+            PacketProcessor.ReadAllPackets(dataReader, fromPeer);
             dataReader.Recycle();
         };
+        
+        PacketProcessor.SubscribeNetSerializable<MoveSnapshot>(HandleMoveSnapshot);
+        PacketProcessor.SubscribeNetSerializable<AttackSnapshot>(HandleAttackSnapshot);
 
         var stopwatch = Stopwatch.StartNew();
         var lastMoveTime = stopwatch.Elapsed;
@@ -84,61 +93,38 @@ class Program
         Console.WriteLine("Cliente finalizado.");
     }
     
-    // As funções HandleServerMessage, SendEnterGame, SendMove e SendAttack permanecem as mesmas.
-    static void HandleServerMessage(NetPacketReader reader)
+    static void HandleMoveSnapshot(MoveSnapshot snapshot)
     {
-        try
-        {
-            var msgType = reader.GetByte();
-            switch (msgType)
-            {
-                case 1: // MoveSnapshot
-                {
-                    var charId = reader.GetInt();
-                    var posX = reader.GetInt();
-                    var posY = reader.GetInt();
-                    var dirX = reader.GetInt();
-                    var dirY = reader.GetInt();
-                    Console.WriteLine($"[SNAPSHOT] Move -> Char:{charId} | Pos:({posX},{posY}) | Dir:({dirX},{dirY})");
-                    break;
-                }
-                case 2: // AttackSnapshot
-                {
-                    var charId = reader.GetInt();
-                    Console.WriteLine($"[SNAPSHOT] Attack -> Char:{charId} iniciou um ataque!");
-                    break;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Erro ao ler snapshot do servidor: {ex.Message}");
-        }
+        Console.WriteLine($"[SNAPSHOT] Move -> Char:{snapshot.CharId} | Pos:({snapshot.Position.X},{snapshot.Position.Y}) | Dir:({snapshot.Direction.X},{snapshot.Direction.Y})");
+    }
+    static void HandleAttackSnapshot(AttackSnapshot snapshot)
+    {
+        Console.WriteLine($"[SNAPSHOT] Attack -> Char:{snapshot.CharId} iniciou um ataque!");
     }
     
     static void SendEnterGame(NetPeer peer, int charId)
     {
         var writer = new NetDataWriter();
-        writer.Put((byte)0);
-        writer.Put(charId);
+        var intent = new EnterGameIntent(charId);
+        PacketProcessor.WriteNetSerializable(writer, ref intent);
         peer.Send(writer, DeliveryMethod.ReliableOrdered);
+        Console.WriteLine("[AÇÃO] Comando EnterGame enviado.");
     }
     
     static void SendMove(NetPeer peer, int charId, int dirX, int dirY)
     {
         var writer = new NetDataWriter();
-        writer.Put((byte)1);
-        writer.Put(charId);
-        writer.Put(dirX);
-        writer.Put(dirY);
-        peer.Send(writer, DeliveryMethod.Unreliable);
+        var direction = new GameVector2(dirX, dirY);
+        var snapshot = new MoveIntent(charId, direction);
+        PacketProcessor.WriteNetSerializable(writer, ref snapshot);
+        peer.Send(writer, DeliveryMethod.ReliableOrdered);
     }
 
     static void SendAttack(NetPeer peer, int charId)
     {
         var writer = new NetDataWriter();
-        writer.Put((byte)2);
-        writer.Put(charId);
+        var intent = new AttackIntent(charId);
+        PacketProcessor.WriteNetSerializable(writer, ref intent);
         peer.Send(writer, DeliveryMethod.ReliableOrdered);
     }
 }

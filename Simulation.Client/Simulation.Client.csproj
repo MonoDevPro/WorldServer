@@ -5,7 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+    
   <ItemGroup>
-    <PackageReference Include="LiteNetLib" Version="1.1.0" />
+    <ProjectReference Include="..\Simulation.Core.Abstractions\Simulation.Core.Abstractions.csproj" />
   </ItemGroup>
 </Project>

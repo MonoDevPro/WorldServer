@@ -4,8 +4,7 @@ namespace Simulation.Core.Abstractions.Commons.Components.Char;
 
 public struct CharInfo
 {
-    public IntPtr NamePtr; // pointer para memória não-gerenciada
-    public int NameLength; // comprimento em bytes (UTF-8 por exemplo)
+    public string Name;
     public Gender Gender;
     public Vocation Vocation;
 }
