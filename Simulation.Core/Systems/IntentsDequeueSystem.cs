@@ -14,8 +14,7 @@ public class IntentsDequeueSystem : BaseSystem<World, float>
     private readonly IntentsEnqueueSystem _enqueuer;
     private readonly IEntityIndex _indexer;
     private const int MaxPerTick = 1024; // Limite para evitar sobrecarga
-
-    // O construtor estava incompleto no último arquivo, corrigindo a injeção de dependência.
+    
     public IntentsDequeueSystem(ILogger<IntentsDequeueSystem> logger, 
         World world, IntentsEnqueueSystem enqueuer, IEntityIndex indexer) 
         : base(world)
