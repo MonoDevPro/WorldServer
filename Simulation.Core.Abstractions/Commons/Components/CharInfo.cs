@@ -1,6 +1,6 @@
 using Simulation.Core.Abstractions.Commons.Enums;
 
-namespace Simulation.Core.Abstractions.Commons.Components.Char;
+namespace Simulation.Core.Abstractions.Commons.Components;
 
 public struct CharInfo
 {

@@ -9,6 +9,7 @@ using Simulation.Core.Abstractions.Commons.Components.Move;
 using Simulation.Core.Abstractions.Intents.In;
 using Simulation.Core.Abstractions.Out;
 using Simulation.Core.Abstractions.Commons.VOs;
+using Simulation.Core.Abstractions.Intents.Out;
 using Simulation.Core.Factories;
 using Simulation.Core.Utilities;
 
@@ -31,9 +32,10 @@ public sealed partial class PlayerLifecycleSystem : BaseSystem<World, float>
     [All<EnterGameIntent>]
     private void OnEnterGame(in Entity entity, in EnterGameIntent intent)
     {
-        if (_entityIndex.TryGetByCharId(intent.CharacterId, out _))
+        var charId = intent.CharacterId;
+        if (_entityIndex.TryGetByCharId(charId, out _))
         {
-            _logger.LogWarning("EnterGameIntent ignorada para o CharId {CharId} que já está no jogo.", intent.CharacterId);
+            _logger.LogWarning("EnterGameIntent ignorada para o CharId {CharId} que já está no jogo.", charId);
             World.Destroy(entity);
             return;
         }
@@ -41,22 +43,27 @@ public sealed partial class PlayerLifecycleSystem : BaseSystem<World, float>
         var mapId = 1; // Mapa padrão
         var pos = new GameVector2(10, 10); // Posição inicial padrão
 
-        var playerEntity = PlayerFactory.Create(
-            World, 
-            intent.CharacterId, 
-            mapId,
-            pos
-        );
+        var (e, snapshot) = PlayerFactory.Create(World, charId, mapId, pos);
 
-        _entityIndex.Register(intent.CharacterId, playerEntity);
-
-        // Garantir que a entidade esteja registrada no índice espacial
-        // (Unregister é idempotente / seguro)
-        try { _grid.Unregister(playerEntity.Id, mapId); } catch { }
-        _grid.Register(playerEntity.Id, mapId, pos);
+        _entityIndex.Register(charId, e);
+        _grid.Register(e.Id, mapId, pos);
         
-        _logger.LogInformation("Jogador {CharId} entrou no jogo. Entidade: {EntityId}", intent.CharacterId, playerEntity.Id);
+        _logger.LogInformation("Jogador {CharId} entrou no jogo. Entidade: {EntityId}", charId, e.Id);
         World.Destroy(entity);
+        
+        // Aqui você pode enfileirar o CharSnapshot para ser enviado ao cliente
+        World.Create(snapshot);
+        
+        // Você também pode notificar outros jogadores no mesmo mapa sobre a entrada do novo jogador
+        CharSnapshot? charSnapshot = snapshot.AllEntities.FirstOrDefault(cs => cs.CharId.CharacterId == charId);
+
+        if (charSnapshot is null)
+        {
+            _logger.LogError("CharSnapshot para o CharId {CharId} não encontrado no GameSnapshot.", charId);
+            return;
+        }
+        
+        World.Create(charSnapshot);
     }
 
     [Query]
@@ -73,6 +80,10 @@ public sealed partial class PlayerLifecycleSystem : BaseSystem<World, float>
             }
             _logger.LogInformation("Jogador {CharId} saiu do jogo.", intent.CharacterId);
         }
+        
+        // Aqui você pode enfileirar uma notificação de saída para ser enviada ao cliente
+        var snapshot = PlayerFactory.ExitSnapshot(intent.CharacterId);
+        World.Create(snapshot);
 
         World.Destroy(entity);
     }

@@ -44,7 +44,7 @@ public class SimulationLoop : IAsyncDisposable
         var last = _mainTimer.Elapsed.TotalSeconds;
 
         // Enfileira comando para carregar mapa 1 (seed)
-        _world.Create(new WantsToLoadMap { MapId = 1 });
+        _world.Create(new MapLoadRequest { MapId = 1 });
         _logger.LogInformation("Comando para carregar mapa 1 enfileirado.");
 
         // Inicia a network (sincronamente aqui) — se preferir, exponha StartAsync com timeout.

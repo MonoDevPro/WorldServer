@@ -11,6 +11,30 @@ public partial class SnapshotPostSystem(World world)
     : BaseSystem<World, float>(world)
 {
     [Query]
+    [All<GameSnapshot>]
+    private void ProcessGameSnapshot(in Entity entity, in GameSnapshot snapshot)
+    {
+        EventBus.Send(snapshot);
+        World.Destroy(entity);
+    }
+    
+    [Query]
+    [All<CharSnapshot>]
+    private void ProcessCharSnapshot(in Entity entity, in CharSnapshot snapshot)
+    {
+        EventBus.Send(snapshot);
+        World.Destroy(entity);
+    }
+    
+    [Query]
+    [All<CharExitSnapshot>]
+    private void ProcessCharExitSnapshot(in Entity entity, in CharExitSnapshot snapshot)
+    {
+        EventBus.Send(snapshot);
+        World.Destroy(entity);
+    }
+    
+    [Query]
     [All<MoveSnapshot>]
     [All<MapRef>]
     [All<TilePosition>]

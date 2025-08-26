@@ -17,4 +17,5 @@ public record struct MoveIntent(int CharId, GameVector2 Input): INetSerializable
         CharId = reader.GetInt();
         Input = new GameVector2(reader.GetInt(), reader.GetInt());
     }
+
 }

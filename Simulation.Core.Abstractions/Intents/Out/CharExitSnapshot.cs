@@ -2,19 +2,17 @@ using LiteNetLib.Utils;
 
 namespace Simulation.Core.Abstractions.Intents.Out;
 
-public record struct GameSnapshot(int MapId, int CharId, CharSnapshot[] AllEntities ) : INetSerializable
+public struct CharExitSnapshot : INetSerializable
 {
+    public int CharId;
+    
     public void Serialize(NetDataWriter writer)
     {
-        writer.Put(MapId);
         writer.Put(CharId);
-        writer.PutArray(AllEntities);
     }
 
     public void Deserialize(NetDataReader reader)
     {
-        MapId = reader.GetInt();
         CharId = reader.GetInt();
-        AllEntities = reader.GetArray<CharSnapshot>();
     }
 }

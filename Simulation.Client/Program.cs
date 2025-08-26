@@ -1,6 +1,5 @@
 using LiteNetLib;
 using LiteNetLib.Utils;
-using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Simulation.Core.Abstractions.Commons.VOs;
 using Simulation.Core.Abstractions.Intents.In;
@@ -15,14 +14,20 @@ enum ClientState { Connecting, Connected, InGame }
 class Program
 {
     private static volatile ClientState _state = ClientState.Connecting; // Estado inicial
-    
+
+    // network
+    private static NetManager? _client;
+    private static EventBasedNetListener? _listener;
+    private static NetPeer? _peer;
     private static readonly NetPacketProcessor PacketProcessor = new NetPacketProcessor();
 
-    private const int CharId = 1; 
-    private static GameVector2 currentPosition;
-    private static GameVector2 targetPosition;
-    private static bool awaitingMoveAck = false;
+    // player
+    private const int CharId = 1;
 
+    // authoritative / predicted positions
+    private static GameVector2 currentPosFromServer = new GameVector2(10, 10);
+    private static GameVector2 predictedPos = currentPosFromServer;
+    
     static void Main()
     {
         // --- Carrega a configuração ---
@@ -33,37 +38,40 @@ class Program
         var networkOptions = new NetworkOptions();
         configuration.GetSection(NetworkOptions.SectionName).Bind(networkOptions);
         // --- Fim da seção de configuração ---
-        
-        var listener = new EventBasedNetListener();
-        var client = new NetManager(listener) { UnsyncedEvents = false, IPv6Enabled = false };
-        client.Start();
-        var peer = client.Connect(networkOptions.ServerAddress, networkOptions.Port, networkOptions.ConnectionKey);
+
+        // network init
+        _listener = new EventBasedNetListener();
+        _client = new NetManager(_listener) { UnsyncedEvents = false, IPv6Enabled = false };
+        _client.Start();
+        _peer = _client.Connect(networkOptions.ServerAddress, networkOptions.Port, networkOptions.ConnectionKey);
 
         Console.WriteLine("Cliente de Testes Iniciado.");
         Console.WriteLine("Tentando conectar ao servidor...");
-        
-        listener.PeerConnectedEvent += p =>
+
+        _listener.PeerConnectedEvent += p =>
         {
-            Console.WriteLine("Cliente de Testes Iniciado.");
-            Console.WriteLine("Tentando conectar ao servidor {0}:{1}...", networkOptions.ServerAddress, networkOptions.Port);
+            Console.WriteLine($"Conectado ao servidor {networkOptions.ServerAddress}:{networkOptions.Port}");
             SendEnterGame(p, CharId);
-            _state = ClientState.InGame; // CORREÇÃO: Altera o estado para InGame APÓS enviar o EnterGame
+            _state = ClientState.InGame;
+            _peer = p;
         };
 
-        listener.PeerDisconnectedEvent += (p, info) => 
+        _listener.PeerDisconnectedEvent += (p, info) =>
         {
             Console.WriteLine($"[DESCONECTADO] Motivo: {info.Reason}");
-            _state = ClientState.Connecting; // Reseta o estado
+            _state = ClientState.Connecting;
+            currentPosFromServer = new GameVector2(10, 10);
+            predictedPos = currentPosFromServer;
         };
 
-        listener.NetworkErrorEvent += (ep, err) => Console.WriteLine($"[ERRO DE REDE] {err}");
+        _listener.NetworkErrorEvent += (ep, err) => Console.WriteLine($"[ERRO DE REDE] {err}");
 
-        listener.NetworkReceiveEvent += (fromPeer, dataReader, channel, deliveryMethod) =>
+        _listener.NetworkReceiveEvent += (fromPeer, dataReader, channel, deliveryMethod) =>
         {
             PacketProcessor.ReadAllPackets(dataReader, fromPeer);
             dataReader.Recycle();
         };
-        
+
         PacketProcessor.SubscribeNetSerializable<MoveSnapshot>(HandleMoveSnapshot);
         PacketProcessor.SubscribeNetSerializable<AttackSnapshot>(HandleAttackSnapshot);
 
@@ -75,91 +83,103 @@ class Program
         Console.WriteLine("D - Move Right");
         Console.WriteLine("Q - Sair");
         Console.WriteLine("-----------------\n");
-        
-        currentPosition = new GameVector2(10, 10);
-        targetPosition = currentPosition;
-        
+
+        // main loop
         while (true)
         {
-            client.PollEvents();
+            _client.PollEvents();
 
             if (_state == ClientState.InGame)
             {
+                // keyboard input
                 if (Console.KeyAvailable)
                 {
                     var key = Console.ReadKey(true).Key;
                     if (key == ConsoleKey.Q) break;
+
                     if (key == ConsoleKey.C)
                     {
                         Console.WriteLine("[AÇÃO] Enviando ataque...");
-                        SendAttack(peer, CharId);
+                        SendAttack(_peer!, CharId);
+                        continue;
                     }
-                    else if (key == ConsoleKey.W) targetPosition += new GameVector2(0, -1); // <- Y negativo = cima
-                    else if (key == ConsoleKey.S) targetPosition += new GameVector2(0, 1);  // <- Y positivo = baixo
-                    else if (key == ConsoleKey.A) targetPosition += new GameVector2(-1, 0);
-                    else if (key == ConsoleKey.D) targetPosition += new GameVector2(1, 0);
 
-                    if (!awaitingMoveAck)
-                    {
-                        var direction = targetPosition - currentPosition;
-                        var dirX = Math.Sign(direction.X);
-                        var dirY = Math.Sign(direction.Y);
-                        SendMove(peer, CharId, dirX, dirY);
-                        awaitingMoveAck = true; // opcional: evita reenvio enquanto aguarda confirmação
-                        // não atualizamos currentPosition aqui — aguardamos MoveSnapshot do servidor
-                    }
+                    GameVector2 dir;
+                    if (key == ConsoleKey.W) dir = new GameVector2(0, -1); // Y -1 = cima
+                    else if (key == ConsoleKey.S) dir = new GameVector2(0, 1);
+                    else if (key == ConsoleKey.A) dir = new GameVector2(-1, 0);
+                    else if (key == ConsoleKey.D) dir = new GameVector2(1, 0);
+                    else continue;
+
+                    // create input with seq and send (unreliable sequenced)
+                    var input = new MoveIntent(CharId, dir); // <- adapte se seu ctor for diferente
+                    SendMove(input);
+                    
+                    // apply locally for immediate feedback (prediction)
+                    predictedPos += dir; // velocidade fixa 1 unidade grid por input
+                    
+                    Console.WriteLine($"[PREDICTION] Nova posição predita: {predictedPos.X},{predictedPos.Y}");
                 }
             }
 
-            Thread.Sleep(15);
+            Thread.Sleep(10);
         }
 
 
-        client.Stop();
+        _client.Stop();
         Console.WriteLine("Cliente finalizado.");
     }
-    
+
     static void HandleMoveSnapshot(MoveSnapshot snapshot)
     {
-        if (snapshot.CharId != CharId) return; // Ignora snapshots de outros personagens
+        if (snapshot.CharId != CharId) 
+            return;
+
+        // authoritative position from server
+        currentPosFromServer = snapshot.NewPosition;
         
-        currentPosition = snapshot.NewPosition;
-        awaitingMoveAck = false; // Libera para novos movimentos
-        
-        Console.WriteLine($"[SNAPSHOT] Move -> Char:{snapshot.CharId} | Pos:({snapshot.NewPosition.X},{snapshot.NewPosition.Y}) | Dir:({snapshot.OldPosition.X},{snapshot.OldPosition.Y})");
+        // Simple reconciliation: if the predicted position diverges from the server's authoritative position, correct it
+        if (predictedPos != currentPosFromServer)
+        {
+            Console.WriteLine($"[RECONCILIATION] Posicao corrigida do servidor: ({currentPosFromServer.X},{currentPosFromServer.Y})");
+            predictedPos = currentPosFromServer;
+        }
+        else
+            Console.WriteLine($"[SNAPSHOT] Posicao confirmada pelo servidor: ({currentPosFromServer.X},{currentPosFromServer.Y})");
     }
+
     static void HandleAttackSnapshot(AttackSnapshot snapshot)
     {
         Console.WriteLine($"[SNAPSHOT] Attack -> Char:{snapshot.CharId} iniciou um ataque!");
     }
-    
+
     static void SendEnterGame(NetPeer peer, int charId)
     {
-        var writer = new NetDataWriter();
+        if (_peer == null) return;
         var intent = new EnterGameIntent(charId);
-        PacketProcessor.WriteNetSerializable(writer, ref intent);
-        peer.Send(writer, DeliveryMethod.ReliableOrdered);
+        Send(_peer, intent, DeliveryMethod.ReliableOrdered);
         Console.WriteLine("[AÇÃO] Comando EnterGame enviado.");
     }
-    
-    static void SendMove(NetPeer peer, int charId, int dirX, int dirY)
-    {
-        // normalize defensivamente
-        var dx = Math.Sign(dirX);
-        var dy = Math.Sign(dirY);
 
-        var writer = new NetDataWriter();
-        var direction = new GameVector2(dx, dy);
-        var snapshot = new MoveIntent(charId, direction);
-        PacketProcessor.WriteNetSerializable(writer, ref snapshot);
-        peer.Send(writer, DeliveryMethod.ReliableOrdered);
+    static void SendMove(MoveIntent input)
+    {
+        if (_peer == null) return;
+        Send(_peer, input, DeliveryMethod.ReliableOrdered);
+        Console.WriteLine($"[AÇÃO] Comando Move enviado. Direção: ({input.Input.X},{input.Input.Y})");
     }
 
     static void SendAttack(NetPeer peer, int charId)
     {
-        var writer = new NetDataWriter();
         var intent = new AttackIntent(charId);
+        Send(peer, intent, DeliveryMethod.ReliableOrdered);
+        Console.WriteLine("[AÇÃO] Comando Attack enviado.");
+    }
+
+    static void Send<T>(NetPeer peer, T intent, DeliveryMethod method = DeliveryMethod.ReliableOrdered)
+        where T : struct, INetSerializable
+    {
+        var writer = new NetDataWriter();
         PacketProcessor.WriteNetSerializable(writer, ref intent);
-        peer.Send(writer, DeliveryMethod.ReliableOrdered);
+        peer.Send(writer, method);
     }
 }

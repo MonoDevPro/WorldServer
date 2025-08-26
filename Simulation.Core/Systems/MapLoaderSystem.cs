@@ -23,8 +23,8 @@ public sealed partial class MapLoaderSystem : BaseSystem<World, float>
     private string GetMapFilePath(int mapId) => Path.Combine(_mapsDirectory, $"{MapPrefix}{mapId}{MapExtension}");
 
     [Query]
-    [All<WantsToLoadMap>]
-    private void OnLoadMapRequest(in Entity cmdEntity, ref WantsToLoadMap cmd)
+    [All<MapLoadRequest>]
+    private void OnLoadMapRequest(in Entity cmdEntity, ref MapLoadRequest cmd)
     {
         if (IsMapLoaded(cmd.MapId))
         {
