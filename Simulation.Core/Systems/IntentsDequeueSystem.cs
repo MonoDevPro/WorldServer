@@ -1,9 +1,6 @@
-using Arch.Buffer;
 using Arch.Core;
-using Arch.Core.Extensions;
 using Arch.System;
 using Microsoft.Extensions.Logging;
-using Simulation.Core.Abstractions.Intents.In;
 using Simulation.Core.Abstractions.Out;
 
 namespace Simulation.Core.Systems;
@@ -32,6 +29,30 @@ public class IntentsDequeueSystem : BaseSystem<World, float>
         ConsumeMoveIntents();
         ConsumeTeleportIntents();
         ConsumeAttackIntents();
+    }
+    
+    private void ConsumeEnterGameIntents()
+    {
+        int processed = 0;
+        while (processed < MaxPerTick && _enqueuer.EnterGameQueue.TryDequeue(out var intent))
+        {
+            _logger.LogInformation("Processando EnterGameIntent para CharId {CharId}", intent.CharacterId);
+            
+            World.Create(intent);
+            processed++;
+        }
+    }
+
+    private void ConsumeExitGameIntents()
+    {
+        int processed = 0;
+        while (processed < MaxPerTick && _enqueuer.ExitGameQueue.TryDequeue(out var intent))
+        {
+            _logger.LogInformation("Processando ExitGameIntent para CharId {CharId}", intent.CharacterId);
+
+            World.Create(intent);
+            processed++;
+        }
     }
 
     private void ConsumeMoveIntents()
@@ -73,30 +94,6 @@ public class IntentsDequeueSystem : BaseSystem<World, float>
                 World.Set(entity, intent);
                 processed++;
             }
-        }
-    }
-
-    private void ConsumeEnterGameIntents()
-    {
-        int processed = 0;
-        while (processed < MaxPerTick && _enqueuer.EnterGameQueue.TryDequeue(out var intent))
-        {
-            _logger.LogInformation("Processando EnterGameIntent para CharId {CharId}", intent.CharacterId);
-            
-            World.Create(intent);
-            processed++;
-        }
-    }
-
-    private void ConsumeExitGameIntents()
-    {
-        int processed = 0;
-        while (processed < MaxPerTick && _enqueuer.ExitGameQueue.TryDequeue(out var intent))
-        {
-            _logger.LogInformation("Processando ExitGameIntent para CharId {CharId}", intent.CharacterId);
-
-            World.Create(intent);
-            processed++;
         }
     }
 }

@@ -40,7 +40,6 @@ public sealed partial class PlayerLifecycleSystem : BaseSystem<World, float>
             new TilePosition { Position = new GameVector2(10, 10) },
             new TileVelocity(),
             new MoveSpeed { Value = 5.0f },
-            // CORREÇÃO: Adicionando o componente de velocidade de ataque que faltava.
             new AttackSpeed { CastTime = 0.5f, Cooldown = 1.5f }
         );
 
