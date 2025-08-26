@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Arch.Core;
 using Simulation.Core.Abstractions.Out;
 
@@ -7,10 +6,10 @@ namespace Simulation.Core.Utilities;
 public sealed class EntityIndex : IEntityIndex
 {
     // charId -> Entity (value contains Version/WorldId)
-    private readonly ConcurrentDictionary<int, Entity> _byCharId = new();
+    private readonly Dictionary<int, Entity> _byCharId = new();
 
     // entityId -> charId (fast inverse lookup to allow O(1) UnregisterEntity)
-    private readonly ConcurrentDictionary<int, int> _entityToChar = new();
+    private readonly Dictionary<int, int> _entityToChar = new();
 
     public void Register(int characterId, in Entity entity)
     {
@@ -22,19 +21,19 @@ public sealed class EntityIndex : IEntityIndex
 
     public void UnregisterByCharId(int characterId)
     {
-        if (_byCharId.TryRemove(characterId, out var ent))
+        if (_byCharId.Remove(characterId, out var ent))
         {
-            _entityToChar.TryRemove(ent.Id, out _);
+            _entityToChar.Remove(ent.Id, out _);
         }
     }
 
     public void UnregisterEntity(in Entity entity)
     {
         // fastest path: lookup inverse map
-        if (_entityToChar.TryRemove(entity.Id, out var charId))
+        if (_entityToChar.Remove(entity.Id, out var charId))
         {
             // attempt remove by charId (best-effort)
-            _byCharId.TryRemove(charId, out _);
+            _byCharId.Remove(charId, out _);
             return;
         }
 
@@ -43,9 +42,9 @@ public sealed class EntityIndex : IEntityIndex
         {
             if (kv.Value.Equals(entity))
             {
-                _byCharId.TryRemove(kv.Key, out _);
+                _byCharId.Remove(kv.Key, out _);
                 // also try cleanup inverse map
-                _entityToChar.TryRemove(entity.Id, out _);
+                _entityToChar.Remove(entity.Id, out _);
                 break;
             }
         }
