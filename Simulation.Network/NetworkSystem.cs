@@ -15,7 +15,7 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
 {
     private NetManager? _server;
     private readonly NetDataWriter _writer = new();
-    private readonly NetPacketProcessor _processor = new NetPacketProcessor();
+    private readonly NetPacketProcessor _processor = new();
     
     private bool _started;
     private readonly ILogger<NetworkSystem> _logger;
@@ -55,6 +55,9 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
             }
             intentProducer.EnqueueAttackIntent(intent);
         });
+        
+        _snapshotEvents.OnMoveSnapshot += SendMoveSnapshot;
+        _snapshotEvents.OnAttackSnapshot += SendAttackSnapshot;
     }
 
     public override void Update(in float delta)
@@ -78,8 +81,7 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
             IPv6Enabled = false
         };
         
-        _snapshotEvents.OnMoveSnapshot += SendMoveSnapshot;
-        _snapshotEvents.OnAttackSnapshot += SendAttackSnapshot;
+        
         
         if (!_server.Start(27015))
         {
