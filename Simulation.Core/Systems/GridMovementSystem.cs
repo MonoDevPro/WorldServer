@@ -1,7 +1,8 @@
+using System.Numerics;
 using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
-using Microsoft.Extensions.Logging; // Adicionado
+using Microsoft.Extensions.Logging;
 using Simulation.Core.Abstractions.Commons.Components;
 using Simulation.Core.Abstractions.Commons.Components.Char;
 using Simulation.Core.Abstractions.Commons.Components.Move;
@@ -12,170 +13,168 @@ using Simulation.Core.Utilities;
 
 namespace Simulation.Core.Systems;
 
-// Assinatura da classe atualizada para receber ILogger
+/// <summary>
+/// GridMovementSystem — versão enxuta e correta:
+/// - cliente envia MoveIntent (direction)
+/// - servidor calcula targetTile = current + sign(direction)
+/// - se válido, cria MovementState com Duration = distance / speed
+/// - ProcessMovement atualiza Elapsed e completa movimento quando Elapsed >= Duration
+/// - ao completar, atualiza TilePosition (inteiro), marca SpatialIndexDirty e enfileira update no grid
+/// </summary>
 public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, ILogger<GridMovementSystem> logger)
     : BaseSystem<World, float>(world)
 {
+    // Recebe intents — tenta iniciar um movimento se a entidade não estiver já se movendo
     [Query]
     [All<MoveIntent>]
     [All<MapRef>]
     [All<TilePosition>]
     [All<MoveSpeed>]
-    [All<TileVelocity>]
-    private void ProcessIntent(in Entity entity, in MoveIntent cmd, in MapRef mapRef,
-        ref TilePosition tilePos, ref MoveSpeed speed, ref TileVelocity vel)
+    private void ProcessIntent(in Entity entity, in MoveIntent intent, in MapRef mapRef, ref TilePosition pos, ref MoveSpeed speed)
     {
-        if (cmd.Input.IsZero)
+        // If zero input -> ignore (no-op)
+        if (intent.Input.IsZero)
         {
-            // Se o cliente enviar (0,0), paramos o personagem.
-            vel.Velocity = VelocityVector.Zero;
-        }
-        else
-        {
-            // Garante velocidade consistente em todas as direções.
-            var directionVector = new VelocityVector(cmd.Input.X, cmd.Input.Y);
-            vel.Velocity = directionVector.Normalize() * speed.Value;
+            World.Remove<MoveIntent>(entity);
+            return;
         }
 
-        logger.LogInformation(
-            "Entity {EntityId}: Processou MoveIntent com input {Input}. Nova TileVelocity = {Velocity}",
-            entity.Id, cmd.Input, vel.Velocity
-        );
+        // If already moving, ignore new intents (simple policy)
+        if (World.Has<MoveState>(entity))
+        {
+            logger.LogDebug("Entity {EntityId}: intent ignored because already moving.", entity.Id);
+            World.Remove<MoveIntent>(entity);
+            return;
+        }
 
+        // compute target tile: one step in sign(input)
+        var dir = intent.Input.Sign();
+        var start = pos.Position;
+        var target = new GameVector2(start.X + dir.X, start.Y + dir.Y);
+
+        // validate movement
+        if (IsMoveInvalid(entity, mapRef.MapId, target))
+        {
+            logger.LogDebug("Entity {EntityId}: attempted move from {Start} to blocked target {Target}.", entity.Id, start, target);
+            World.Remove<MoveIntent>(entity);
+            return;
+        }
+
+        // compute distance (diagonal allowed) and duration based on speed (tiles/sec)
+        var dx = target.X - start.X;
+        var dy = target.Y - start.Y;
+        var distance = MathF.Sqrt(dx*dx + dy*dy); // usually 1 or sqrt(2)
+        var spd = speed.Value;
+        if (spd <= 0f) spd = 1f; // fallback to avoid div0
+
+        var duration = distance / spd;
+        if (duration <= 0f) duration = 0.001f; // tiny epsilon to ensure progress
+
+        var state = new MoveState
+        {
+            Start = start,
+            Target = target,
+            Elapsed = 0f,
+            Duration = duration
+        };
+
+        World.Add<MoveState>(entity, state);
+        logger.LogInformation("Entity {EntityId}: started movement {Start} -> {Target} duration={Duration:F3}s (speed={Speed})", entity.Id, start, target, duration, spd);
+
+        // Remove the intent (consumed)
         World.Remove<MoveIntent>(entity);
+        
+        // If not completed, we could do nothing (tile pos remains old) or publish an interpolated snapshot for clients.
+        // Example: if you want to send intermediate positions for smooth client visuals, add a MoveSnapshot component:
+        if (World.Has<CharId>(entity))
+        {
+            var charId = World.Get<CharId>(entity).CharacterId;
+            World.Add<MoveSnapshot>(entity, new MoveSnapshot(charId, start, target));
+        }
+
+        // Ensure entity is at least registered in the spatial index (if not already)
+        try
+        {
+            if (!grid.IsRegistered(entity.Id))
+                grid.Register(entity.Id, mapRef.MapId, start);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Entity {EntityId}: failed to ensure registration in spatial index.", entity.Id);
+        }
     }
 
+    // Process ongoing movements
     [Query]
     [All<MapRef>]
     [All<TilePosition>]
-    [All<TileVelocity>]
-    [All<MoveAccumulator>]
-    private void ProcessMovement([Data] in float dt, in Entity e,
-        ref TilePosition pos, ref TileVelocity vel, ref MapRef map, ref MoveAccumulator acc)
+    [All<MoveState>]
+    private void ProcessMovement([Data] in float dt, in Entity e, ref TilePosition pos, ref MoveState state,
+        in MapRef mapRef)
     {
-        if (dt <= 0f) return;
-
-        if (vel.Velocity.IsZero)
-        {
-            if (!acc.Value.IsZero)
-            {
-                logger.LogInformation("Entity {EntityId}: Velocidade zerada, limpando acumulador.", e.Id);
-                acc.Value = VelocityVector.Zero;
-            }
+        if (dt <= 0f)
             return;
-        }
 
-        // 1. Pega o valor acumulado
-        var accumulatedBefore = acc.Value;
+        state.Elapsed += dt;
+        var t = state.Duration > 0f ? MathF.Min(state.Elapsed / state.Duration, 1f) : 1f;
 
-        // 2. Adiciona o deslocamento
-        var totalDisplacement = accumulatedBefore + (vel.Velocity * dt);
-
-        // 3. Calcula o passo
-        var step = new GameVector2((int)totalDisplacement.X, (int)totalDisplacement.Y);
-
-        logger.LogTrace(
-            "Entity {EntityId}: dt={DeltaTime:F4}, Vel={Velocity}, AccBefore={AccBefore}, TotalDisp={TotalDisplacement}, Step={Step}",
-            e.Id, dt, vel.Velocity, accumulatedBefore, totalDisplacement, step
-        );
-
-        // 4. Tenta mover
-        if (!step.IsZero)
-        {
-            TryMove(e, ref pos, map.MapId, step);
-            totalDisplacement -= new VelocityVector(step.X, step.Y);
-        }
-
-        // 5. Guarda a parte fracionária
-        acc.Value = totalDisplacement;
-    }
-
-    private void TryMove(Entity entity, ref TilePosition pos, int mapId, GameVector2 step)
-    {
-        var remainingStep = step;
-        var currentPos = pos.Position;
-
-        // Move no eixo X
-        while (remainingStep.X != 0)
-        {
-            var singleStep = new GameVector2(Math.Sign(remainingStep.X), 0);
-            var target = currentPos + singleStep;
-            if (IsMoveInvalid(entity, mapId, target)) break;
-            currentPos = target;
-            remainingStep = remainingStep with { X = remainingStep.X - singleStep.X };
-        }
-
-        // Move no eixo Y
-        while (remainingStep.Y != 0)
-        {
-            var singleStep = new GameVector2(0, Math.Sign(remainingStep.Y));
-            var target = currentPos + singleStep;
-            if (IsMoveInvalid(entity, mapId, target)) break;
-            currentPos = target;
-            remainingStep = remainingStep with { Y = remainingStep.Y - singleStep.Y };
-        }
+        // Optionally we could expose a float position for interpolation (visual). Here we keep TilePosition integer,
+        // and only update it when movement completes to preserve rule-consistency.
+        if (!(t >= 1f))
+            return;
         
+        // Movement complete: update authoritative TilePosition (integer)
         var old = pos.Position;
-        var newPos = currentPos;
-        
-        if (old == newPos)
-        {
-            logger.LogWarning("Entity {EntityId}: Tentou mover com step {Step}, mas movimento foi bloqueado. Posição permanece {Position}", entity.Id, step, old);
-            return;
-        }
-        
-        pos.Position = newPos;
-        
-        ref var dirty = ref World.AddOrGet<SpatialIndexDirty>(entity);
-        dirty.Old = old;
-        dirty.New = newPos;
-        dirty.MapId = mapId;
-        grid.EnqueueUpdate(entity.Id, mapId, old, newPos);
-        
-        var charId = World.Get<CharId>(entity);
-        World.Add<MoveSnapshot>(entity, new MoveSnapshot(charId.CharacterId, newPos - old, newPos));
-        
-        logger.LogInformation(
-            "Entity {EntityId}: MOVIMENTO EFETUADO de {OldPosition} para {NewPosition} (Step Solicitado: {Step})",
-            entity.Id, old, newPos, step
-        );
+        pos.Position = state.Target;
+
+        // mark spatial index dirty + enqueue update (batch)
+        ref var dirty = ref World.AddOrGet<SpatialIndexDirty>(e);
+        dirty.Old = state.Start;
+        dirty.New = state.Target;
+        dirty.MapId = mapRef.MapId;
+
+        grid.EnqueueUpdate(e.Id, mapRef.MapId, state.Start, state.Target);
+
+        // remove movement state
+        World.Remove<MoveState>(e);
+
+        logger.LogInformation("Entity {EntityId}: completed movement {Old} -> {New}", e.Id, old, pos.Position);
     }
 
+    // check static and dynamic blocking; uses spatial index for dynamic entities
     private bool IsMoveInvalid(Entity entity, int mapId, GameVector2 target)
     {
         if (!MapIndex.TryGetMap(mapId, out var map))
         {
-            logger.LogWarning("Entity {EntityId}: Movimento inválido para {Target} - Mapa {MapId} não encontrado.", entity.Id, target, mapId);
+            logger.LogWarning("Entity {EntityId}: map {MapId} not found.", entity.Id, mapId);
             return true;
         }
 
-        if (!map.InBounds(target))
+        if (target.X < 0 || target.Y < 0 || target.X >= map.Width || target.Y >= map.Height)
         {
-            logger.LogWarning("Entity {EntityId}: Movimento inválido para {Target} - Fora dos limites do mapa.", entity.Id, target);
             return true;
         }
 
         if (map.IsBlocked(target))
         {
-            logger.LogWarning("Entity {EntityId}: Movimento inválido para {Target} - Bloqueado pela colisão do mapa.", entity.Id, target);
             return true;
         }
 
         var blockedByEntity = false;
         grid.QueryAABB(mapId, target.X, target.Y, target.X, target.Y, eid =>
         {
-            if (World.Has<Blocking>(entity))
+            // ignore self if already registered on same tile
+            if (eid == entity.Id) return;
+            var other = grid.GetEntity(eid);
+            if (World.Has<Blocking>(other))
             {
                 blockedByEntity = true;
             }
         });
-        
-        if (blockedByEntity)
-        {
-            logger.LogWarning("Entity {EntityId}: Movimento inválido para {Target} - Bloqueado por outra entidade.", entity.Id, target);
-            return true;
-        }
 
-        return false;
+        return blockedByEntity;
     }
+
+    // helper lerp if you want interpolation later
+    private static float Lerp(float a, float b, float t) => a + (b - a) * t;
 }

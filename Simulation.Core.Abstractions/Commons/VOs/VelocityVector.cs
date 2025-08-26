@@ -70,6 +70,9 @@ public readonly record struct VelocityVector(float X, float Y)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static VelocityVector operator +(VelocityVector a, VelocityVector b)
         => new(a.X + b.X, a.Y + b.Y);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static VelocityVector operator +(VelocityVector a, GameVector2 b)
+        => new(a.X + b.X, a.Y + b.Y);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static VelocityVector operator -(VelocityVector a, VelocityVector b)

@@ -21,6 +21,7 @@ class Program
     private const int CharId = 1; 
     private static GameVector2 currentPosition;
     private static GameVector2 targetPosition;
+    private static bool awaitingMoveAck = false;
 
     static void Main()
     {
@@ -82,7 +83,6 @@ class Program
         {
             client.PollEvents();
 
-            // CORREÇÃO: Todas as ações agora só são permitidas se o estado for InGame
             if (_state == ClientState.InGame)
             {
                 if (Console.KeyAvailable)
@@ -94,22 +94,26 @@ class Program
                         Console.WriteLine("[AÇÃO] Enviando ataque...");
                         SendAttack(peer, CharId);
                     }
-                    else if (key == ConsoleKey.W) targetPosition += new GameVector2(0, 1);
-                    else if (key == ConsoleKey.S) targetPosition += new GameVector2(0, -1);
+                    else if (key == ConsoleKey.W) targetPosition += new GameVector2(0, -1); // <- Y negativo = cima
+                    else if (key == ConsoleKey.S) targetPosition += new GameVector2(0, 1);  // <- Y positivo = baixo
                     else if (key == ConsoleKey.A) targetPosition += new GameVector2(-1, 0);
                     else if (key == ConsoleKey.D) targetPosition += new GameVector2(1, 0);
-                    
-                    if (targetPosition != currentPosition)
+
+                    if (!awaitingMoveAck)
                     {
                         var direction = targetPosition - currentPosition;
-                        SendMove(peer, CharId, direction.X, direction.Y);
-                        currentPosition = targetPosition; // Atualiza a posição atual para evitar múltiplos envios
+                        var dirX = Math.Sign(direction.X);
+                        var dirY = Math.Sign(direction.Y);
+                        SendMove(peer, CharId, dirX, dirY);
+                        awaitingMoveAck = true; // opcional: evita reenvio enquanto aguarda confirmação
+                        // não atualizamos currentPosition aqui — aguardamos MoveSnapshot do servidor
                     }
                 }
             }
 
             Thread.Sleep(15);
         }
+
 
         client.Stop();
         Console.WriteLine("Cliente finalizado.");
@@ -119,10 +123,10 @@ class Program
     {
         if (snapshot.CharId != CharId) return; // Ignora snapshots de outros personagens
         
-        currentPosition = snapshot.Position;
-        targetPosition = currentPosition; // Sincroniza a posição alvo com a atual para evitar
+        currentPosition = snapshot.NewPosition;
+        awaitingMoveAck = false; // Libera para novos movimentos
         
-        Console.WriteLine($"[SNAPSHOT] Move -> Char:{snapshot.CharId} | Pos:({snapshot.Position.X},{snapshot.Position.Y}) | Dir:({snapshot.Direction.X},{snapshot.Direction.Y})");
+        Console.WriteLine($"[SNAPSHOT] Move -> Char:{snapshot.CharId} | Pos:({snapshot.NewPosition.X},{snapshot.NewPosition.Y}) | Dir:({snapshot.OldPosition.X},{snapshot.OldPosition.Y})");
     }
     static void HandleAttackSnapshot(AttackSnapshot snapshot)
     {
@@ -140,8 +144,12 @@ class Program
     
     static void SendMove(NetPeer peer, int charId, int dirX, int dirY)
     {
+        // normalize defensivamente
+        var dx = Math.Sign(dirX);
+        var dy = Math.Sign(dirY);
+
         var writer = new NetDataWriter();
-        var direction = new GameVector2(dirX, dirY);
+        var direction = new GameVector2(dx, dy);
         var snapshot = new MoveIntent(charId, direction);
         PacketProcessor.WriteNetSerializable(writer, ref snapshot);
         peer.Send(writer, DeliveryMethod.ReliableOrdered);

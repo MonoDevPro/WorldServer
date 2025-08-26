@@ -1,3 +1,4 @@
+using Arch.Core;
 using Arch.LowLevel.Jagged;
 using Simulation.Core.Abstractions.Commons.VOs;
 using Simulation.Core.Abstractions.Out;
@@ -19,6 +20,8 @@ public interface ISpatialIndex : IDisposable
     // Batch (pending) API
     void EnqueueUpdate(int entityId, int mapId, GameVector2 oldPos, GameVector2 newPos);
     void Flush(); // apply all enqueued updates
+
+    Entity GetEntity(int entityId);
 }
 
 public class SpatialHashGrid : ISpatialIndex
@@ -192,6 +195,13 @@ public class SpatialHashGrid : ISpatialIndex
 
         // Clear pending
         _pending.Clear();
+    }
+
+    public Entity GetEntity(int entityId)
+    {
+        if (_entityIndex.TryGetByEntityId(entityId, out var ent))
+            return ent;
+        return Entity.Null;
     }
 
     public void UpdatePosition(int entityId, int mapId, GameVector2 oldPos, GameVector2 newPos)

@@ -18,8 +18,6 @@ public readonly record struct GameVector2(int X, int Y)
     public static readonly GameVector2 SouthWest = new(-1, 1);
     public static readonly GameVector2 SouthEast = new(1, 1);
 
-    private const float EPS = 1e-6f;
-
     public bool IsZero => X == 0 && Y == 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
