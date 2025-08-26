@@ -1,26 +1,21 @@
-using System;
-using System.Collections.Generic;
 using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
-using Simulation.Core.Abstractions.Commons;
+using Microsoft.Extensions.Logging; // Adicionado
 using Simulation.Core.Abstractions.Commons.Components;
 using Simulation.Core.Abstractions.Commons.Components.Char;
 using Simulation.Core.Abstractions.Commons.Components.Move;
 using Simulation.Core.Abstractions.Commons.VOs;
-using Simulation.Core.Abstractions.In;
 using Simulation.Core.Abstractions.Intents.In;
 using Simulation.Core.Abstractions.Intents.Out;
-using Simulation.Core.Abstractions.Out;
 using Simulation.Core.Utilities;
 
 namespace Simulation.Core.Systems;
 
-public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
+// Assinatura da classe atualizada para receber ILogger
+public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, ILogger<GridMovementSystem> logger)
     : BaseSystem<World, float>(world)
 {
-    private readonly ISpatialIndex _grid = grid;
-
     [Query]
     [All<MoveIntent>]
     [All<MapRef>]
@@ -30,13 +25,23 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
     private void ProcessIntent(in Entity entity, in MoveIntent cmd, in MapRef mapRef,
         ref TilePosition tilePos, ref MoveSpeed speed, ref TileVelocity vel)
     {
-        if (!cmd.Input.IsZero)
+        if (cmd.Input.IsZero)
         {
-            // Calcula a velocidade em tiles por segundo
-            vel.Velocity = cmd.Input * speed.Value;
+            // Se o cliente enviar (0,0), paramos o personagem.
+            vel.Velocity = VelocityVector.Zero;
+        }
+        else
+        {
+            // Garante velocidade consistente em todas as direções.
+            var directionVector = new VelocityVector(cmd.Input.X, cmd.Input.Y);
+            vel.Velocity = directionVector.Normalize() * speed.Value;
         }
 
-        // Remove o comando de intenção de movimento após processar
+        logger.LogInformation(
+            "Entity {EntityId}: Processou MoveIntent com input {Input}. Nova TileVelocity = {Velocity}",
+            entity.Id, cmd.Input, vel.Velocity
+        );
+
         World.Remove<MoveIntent>(entity);
     }
 
@@ -45,38 +50,48 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
     [All<TilePosition>]
     [All<TileVelocity>]
     [All<MoveAccumulator>]
-    private void ProcessMovement([Data] in float dt, in Entity e, 
+    private void ProcessMovement([Data] in float dt, in Entity e,
         ref TilePosition pos, ref TileVelocity vel, ref MapRef map, ref MoveAccumulator acc)
     {
-        if (dt <= 0f || vel.Velocity.IsZero)
+        if (dt <= 0f) return;
+
+        if (vel.Velocity.IsZero)
         {
-            // Se a velocidade for zerada, removemos o acumulador para limpar o estado
-            acc.Value = VelocityVector.Zero;
+            if (!acc.Value.IsZero)
+            {
+                logger.LogInformation("Entity {EntityId}: Velocidade zerada, limpando acumulador.", e.Id);
+                acc.Value = VelocityVector.Zero;
+            }
             return;
         }
-        
-        // 1. O valor acumulado já está em 'acc.Value'
-        // 2. Adiciona o deslocamento do frame atual
-        var totalDisplacement = acc.Value + (vel.Velocity * dt);
 
-        // 3. Calcula quantos tiles inteiros a entidade deve se mover
+        // 1. Pega o valor acumulado
+        var accumulatedBefore = acc.Value;
+
+        // 2. Adiciona o deslocamento
+        var totalDisplacement = accumulatedBefore + (vel.Velocity * dt);
+
+        // 3. Calcula o passo
         var step = new GameVector2((int)totalDisplacement.X, (int)totalDisplacement.Y);
 
-        // 4. Se houver movimento a ser feito, executa-o
+        logger.LogTrace(
+            "Entity {EntityId}: dt={DeltaTime:F4}, Vel={Velocity}, AccBefore={AccBefore}, TotalDisp={TotalDisplacement}, Step={Step}",
+            e.Id, dt, vel.Velocity, accumulatedBefore, totalDisplacement, step
+        );
+
+        // 4. Tenta mover
         if (!step.IsZero)
         {
             TryMove(e, ref pos, map.MapId, step);
-            // Subtrai os tiles inteiros que foram "usados" para o movimento
             totalDisplacement -= new VelocityVector(step.X, step.Y);
         }
 
-        // 5. Guarda de volta a parte fracionária
+        // 5. Guarda a parte fracionária
         acc.Value = totalDisplacement;
     }
 
     private void TryMove(Entity entity, ref TilePosition pos, int mapId, GameVector2 step)
     {
-        // Esta implementação agora move um tile de cada vez para evitar "atravessar" paredes
         var remainingStep = step;
         var currentPos = pos.Position;
 
@@ -85,10 +100,7 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
         {
             var singleStep = new GameVector2(Math.Sign(remainingStep.X), 0);
             var target = currentPos + singleStep;
-
-            if (IsMoveInvalid(entity, mapId, target)) 
-                break; // Para se encontrar um obstáculo
-
+            if (IsMoveInvalid(entity, mapId, target)) break;
             currentPos = target;
             remainingStep = remainingStep with { X = remainingStep.X - singleStep.X };
         }
@@ -98,18 +110,19 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
         {
             var singleStep = new GameVector2(0, Math.Sign(remainingStep.Y));
             var target = currentPos + singleStep;
-
-            if (IsMoveInvalid(entity, mapId, target)) break; // Para se encontrar um obstáculo
-
+            if (IsMoveInvalid(entity, mapId, target)) break;
             currentPos = target;
             remainingStep = remainingStep with { Y = remainingStep.Y - singleStep.Y };
         }
         
-        var old = pos.Position; // antes de cálculo
-        var newPos = currentPos; // depois de cálculo
+        var old = pos.Position;
+        var newPos = currentPos;
         
         if (old == newPos)
-            return; // Não houve movimento efetivo
+        {
+            logger.LogWarning("Entity {EntityId}: Tentou mover com step {Step}, mas movimento foi bloqueado. Posição permanece {Position}", entity.Id, step, old);
+            return;
+        }
         
         pos.Position = newPos;
         
@@ -117,39 +130,52 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
         dirty.Old = old;
         dirty.New = newPos;
         dirty.MapId = mapId;
-        _grid.EnqueueUpdate(entity.Id, mapId, old, newPos);
+        grid.EnqueueUpdate(entity.Id, mapId, old, newPos);
         
-        // Envia snapshot de movimento para a rede
         var charId = World.Get<CharId>(entity);
         World.Add<MoveSnapshot>(entity, new MoveSnapshot(charId.CharacterId, newPos - old, newPos));
         
-        Console.WriteLine($"Entity {entity.Id} moved to {pos.Position} on map {mapId}");
+        logger.LogInformation(
+            "Entity {EntityId}: MOVIMENTO EFETUADO de {OldPosition} para {NewPosition} (Step Solicitado: {Step})",
+            entity.Id, old, newPos, step
+        );
     }
 
     private bool IsMoveInvalid(Entity entity, int mapId, GameVector2 target)
     {
-        // Valida mapa e bounds
         if (!MapIndex.TryGetMap(mapId, out var map))
-            return true;
-
-        if (target.X < 0 || target.Y < 0 || target.X >= map.Width || target.Y >= map.Height)
-            return true;
-
-        // Verifica se o tile está bloqueado no mapa (colisões estáticas)
-        if (map.IsBlocked(target))
-            return true;
-
-        // Verifica se existe entidade bloqueante no tile
-        var blockedByEntity = false;
-        _grid.QueryAABB(mapId, target.X, target.Y, target.X, target.Y, eid =>
         {
-            // se a entidade possui componente Blocking então impede o movimento
+            logger.LogWarning("Entity {EntityId}: Movimento inválido para {Target} - Mapa {MapId} não encontrado.", entity.Id, target, mapId);
+            return true;
+        }
+
+        if (!map.InBounds(target))
+        {
+            logger.LogWarning("Entity {EntityId}: Movimento inválido para {Target} - Fora dos limites do mapa.", entity.Id, target);
+            return true;
+        }
+
+        if (map.IsBlocked(target))
+        {
+            logger.LogWarning("Entity {EntityId}: Movimento inválido para {Target} - Bloqueado pela colisão do mapa.", entity.Id, target);
+            return true;
+        }
+
+        var blockedByEntity = false;
+        grid.QueryAABB(mapId, target.X, target.Y, target.X, target.Y, eid =>
+        {
             if (World.Has<Blocking>(entity))
             {
                 blockedByEntity = true;
             }
         });
+        
+        if (blockedByEntity)
+        {
+            logger.LogWarning("Entity {EntityId}: Movimento inválido para {Target} - Bloqueado por outra entidade.", entity.Id, target);
+            return true;
+        }
 
-        return blockedByEntity;
+        return false;
     }
 }

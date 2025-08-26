@@ -37,11 +37,14 @@ public class SpatialHashGrid : ISpatialIndex
     // pending updates: entityId -> (mapId, old, @new)
     private readonly Dictionary<int, (int mapId, GameVector2 oldP, GameVector2 newP)> _pending =
         new Dictionary<int, (int, GameVector2, GameVector2)>();
+    
+    private IEntityIndex _entityIndex;
 
     public SpatialHashGrid(IEntityIndex entityIndex, int bucketSize = 8)
     {
         if (bucketSize <= 0) throw new ArgumentOutOfRangeException(nameof(bucketSize));
         _bucketSize = bucketSize;
+        _entityIndex = entityIndex;
     }
 
     private void EnsureMapInitialized(int mapId)

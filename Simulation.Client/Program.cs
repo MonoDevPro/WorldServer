@@ -14,11 +14,13 @@ enum ClientState { Connecting, Connected, InGame }
 
 class Program
 {
-    private const int CharId = 1; 
     private static volatile ClientState _state = ClientState.Connecting; // Estado inicial
     
     private static readonly NetPacketProcessor PacketProcessor = new NetPacketProcessor();
-    
+
+    private const int CharId = 1; 
+    private static GameVector2 currentPosition;
+    private static GameVector2 targetPosition;
 
     static void Main()
     {
@@ -64,13 +66,17 @@ class Program
         PacketProcessor.SubscribeNetSerializable<MoveSnapshot>(HandleMoveSnapshot);
         PacketProcessor.SubscribeNetSerializable<AttackSnapshot>(HandleAttackSnapshot);
 
-        var stopwatch = Stopwatch.StartNew();
-        var lastMoveTime = stopwatch.Elapsed;
-
         Console.WriteLine("\n--- Controles ---");
-        Console.WriteLine("A - Atacar");
+        Console.WriteLine("C - Atacar");
+        Console.WriteLine("W - Move Up");
+        Console.WriteLine("A - Move Left");
+        Console.WriteLine("S - Move Down");
+        Console.WriteLine("D - Move Right");
         Console.WriteLine("Q - Sair");
         Console.WriteLine("-----------------\n");
+        
+        currentPosition = new GameVector2(10, 10);
+        targetPosition = currentPosition;
         
         while (true)
         {
@@ -83,17 +89,22 @@ class Program
                 {
                     var key = Console.ReadKey(true).Key;
                     if (key == ConsoleKey.Q) break;
-                    if (key == ConsoleKey.A)
+                    if (key == ConsoleKey.C)
                     {
                         Console.WriteLine("[AÇÃO] Enviando ataque...");
                         SendAttack(peer, CharId);
                     }
-                }
-
-                if ((stopwatch.Elapsed - lastMoveTime).TotalMilliseconds > 200)
-                {
-                    SendMove(peer, CharId, 1, 0); // Move para a direita
-                    lastMoveTime = stopwatch.Elapsed;
+                    else if (key == ConsoleKey.W) targetPosition += new GameVector2(0, 1);
+                    else if (key == ConsoleKey.S) targetPosition += new GameVector2(0, -1);
+                    else if (key == ConsoleKey.A) targetPosition += new GameVector2(-1, 0);
+                    else if (key == ConsoleKey.D) targetPosition += new GameVector2(1, 0);
+                    
+                    if (targetPosition != currentPosition)
+                    {
+                        var direction = targetPosition - currentPosition;
+                        SendMove(peer, CharId, direction.X, direction.Y);
+                        currentPosition = targetPosition; // Atualiza a posição atual para evitar múltiplos envios
+                    }
                 }
             }
 
@@ -106,6 +117,11 @@ class Program
     
     static void HandleMoveSnapshot(MoveSnapshot snapshot)
     {
+        if (snapshot.CharId != CharId) return; // Ignora snapshots de outros personagens
+        
+        currentPosition = snapshot.Position;
+        targetPosition = currentPosition; // Sincroniza a posição alvo com a atual para evitar
+        
         Console.WriteLine($"[SNAPSHOT] Move -> Char:{snapshot.CharId} | Pos:({snapshot.Position.X},{snapshot.Position.Y}) | Dir:({snapshot.Direction.X},{snapshot.Direction.Y})");
     }
     static void HandleAttackSnapshot(AttackSnapshot snapshot)

@@ -9,15 +9,15 @@ namespace Simulation.Core.Factories;
 
 public static class PlayerFactory
 {
-    public static Entity Create(World world, int characterId, GameVector2 initialPosition)
+    public static Entity Create(World world, int characterId, int mapId, GameVector2 initialPosition)
     {
         return world.Create(
             new CharId { CharacterId = characterId },
-            new MapRef { MapId = 1 }, // O MapId pode ser um parâmetro
+            new MapRef { MapId = mapId }, // O MapId pode ser um parâmetro
             new TilePosition { Position = initialPosition },
             new TileVelocity(),
             new MoveAccumulator(),
-            new MoveSpeed { Value = 0.5f }, // Valor padrão de velocidade
+            new MoveSpeed { Value = 5.0f }, // Valor padrão de velocidade
             new AttackSpeed { CastTime = 0.5f, Cooldown = 1.5f }
         );
     }
