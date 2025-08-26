@@ -143,7 +143,7 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
     {
         _writer.Reset();
         _processor.WriteNetSerializable(_writer, ref snapshot);
-        _server?.SendToAll(_writer, DeliveryMethod.Unreliable);
+        _server?.SendToAll(_writer, DeliveryMethod.ReliableOrdered);
         _logger.LogTrace("Enviando MoveSnapshot para CharId: {CharId}", snapshot.CharId);
     }
     

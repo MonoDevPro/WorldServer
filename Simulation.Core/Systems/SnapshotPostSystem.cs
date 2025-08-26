@@ -14,17 +14,9 @@ public partial class SnapshotPostSystem(World world)
     [All<MoveSnapshot>]
     [All<MapRef>]
     [All<TilePosition>]
-    private void ProcessMoveSnapshot(in Entity entity, in MoveSnapshot snapshot, in MapRef mapRef,
-        ref TilePosition tilePos)
+    private void ProcessMoveSnapshot(in Entity entity, in MoveSnapshot snapshot, in MapRef mapRef)
     {
-        // Verifica se houve mudança de posição
-        if (tilePos.Position == snapshot.Position)
-            // Posição não mudou, não processa o snapshot e remove o comando
-        {
-            World.Remove<MoveSnapshot>(entity);
-            return;
-        }
-
         EventBus.Send(snapshot);
+        World.Remove<MoveSnapshot>(entity);
     }
 }

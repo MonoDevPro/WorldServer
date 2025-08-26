@@ -5,6 +5,7 @@ using Arch.System;
 using Arch.System.SourceGenerator;
 using Simulation.Core.Abstractions.Commons;
 using Simulation.Core.Abstractions.Commons.Components;
+using Simulation.Core.Abstractions.Commons.Components.Char;
 using Simulation.Core.Abstractions.Commons.Components.Move;
 using Simulation.Core.Abstractions.Commons.VOs;
 using Simulation.Core.Abstractions.In;
@@ -35,16 +36,7 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
         {
             // Calcula a velocidade em tiles por segundo
             vel.Velocity = cmd.Input * speed.Value;
-
-            // Envia snapshot de movimento para a rede
-            World.Add<MoveSnapshot>(entity, new MoveSnapshot(cmd.CharId, cmd.Input, tilePos.Position));
         }
-
-        // Garantir que a entidade esteja registrada no índice espacial
-        // Chamamos Unregister antes para evitar entradas duplicadas caso já esteja registrada.
-        try { _grid.Unregister(entity.Id, mapRef.MapId); }
-        catch { /* Unregister é seguro se não existir; ignorar erros não-fatais */ }
-        _grid.Register(entity.Id, mapRef.MapId, tilePos.Position);
 
         // Remove o comando de intenção de movimento após processar
         World.Remove<MoveIntent>(entity);
@@ -123,6 +115,10 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
         
         var old = pos.Position; // antes de cálculo
         var newPos = currentPos; // depois de cálculo
+        
+        if (old == newPos)
+            return; // Não houve movimento efetivo
+        
         pos.Position = newPos;
         
         ref var dirty = ref World.AddOrGet<SpatialIndexDirty>(entity);
@@ -130,6 +126,10 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid)
         dirty.New = newPos;
         dirty.MapId = mapId;
         _grid.EnqueueUpdate(entity.Id, mapId, old, newPos);
+        
+        // Envia snapshot de movimento para a rede
+        var charId = World.Get<CharId>(entity);
+        World.Add<MoveSnapshot>(entity, new MoveSnapshot(charId.CharacterId, newPos - old, newPos));
         
         Console.WriteLine($"Entity {entity.Id} moved to {pos.Position} on map {mapId}");
     }
