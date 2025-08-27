@@ -113,7 +113,7 @@ class Program
 
             if (_state == ClientState.InGame)
             {
-                Console.WriteLine($"[STATUS] Posição Autoritativa: ({currentPosFromServer.X},{currentPosFromServer.Y}) | Posição Predita: ({predictedPos.X},{predictedPos.Y})");
+                //Console.WriteLine($"[STATUS] Posição Autoritativa: ({currentPosFromServer.X},{currentPosFromServer.Y}) | Posição Predita: ({predictedPos.X},{predictedPos.Y})");
                 
                 // keyboard input
                 if (Console.KeyAvailable)

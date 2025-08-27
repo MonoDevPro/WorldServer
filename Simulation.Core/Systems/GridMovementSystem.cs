@@ -55,8 +55,12 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, 
         // validate movement
         if (IsMoveInvalid(entity, mapRef.MapId, target))
         {
-            logger.LogDebug("Entity {EntityId}: attempted move from {Start} to blocked target {Target}.", entity.Id, start, target);
+            logger.LogInformation("Entity {EntityId}: attempted move from {Start} to blocked target {Target}.", entity.Id, start, target);
             World.Remove<MoveIntent>(entity);
+            
+            // Envia reconciliação
+            var charId = World.Get<CharId>(entity).CharacterId;
+            World.Add<MoveSnapshot>(entity, new MoveSnapshot(charId, start, start));
             return;
         }
 

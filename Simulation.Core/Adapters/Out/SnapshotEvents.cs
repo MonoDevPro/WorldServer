@@ -7,7 +7,6 @@ namespace Simulation.Core.Adapters.Out;
 public partial class SnapshotEvents : ISnapshotEvents
 {
     public event Action<GameSnapshot> OnEnterGameSnapshot = delegate { };
-    public event Action<CharSnapshot> OnCharSnapshot = delegate { };
     public event Action<CharExitSnapshot> OnCharExitSnapshot = delegate { };
     public event Action<MoveSnapshot> OnMoveSnapshot = delegate { };
     public event Action<AttackSnapshot> OnAttackSnapshot = delegate { };
@@ -15,10 +14,6 @@ public partial class SnapshotEvents : ISnapshotEvents
     [Event(order: 0)]
     public void RaiseEnterGameSnapshot(in GameSnapshot snapshot)
         => OnEnterGameSnapshot.Invoke(snapshot);
-    
-    [Event(order: 0)]
-    public void RaiseCharSnapshot(in CharSnapshot snapshot)
-        => OnCharSnapshot.Invoke(snapshot);
     
     [Event(order: 0)]
     public void RaiseExitGameSnapshot(in CharExitSnapshot snapshot)

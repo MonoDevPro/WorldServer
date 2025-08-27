@@ -63,7 +63,6 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
 
         // --- REGISTRO DE EVENTOS DE SAÍDA (SNAPSHOTS) ---
         _snapshotEvents.OnEnterGameSnapshot += SendGameSnapshot;
-        _snapshotEvents.OnCharSnapshot += SendCharSnapshot;
         _snapshotEvents.OnCharExitSnapshot += SendCharCharExitSnapshot;
         _snapshotEvents.OnMoveSnapshot += SendMoveSnapshot;
         _snapshotEvents.OnAttackSnapshot += SendAttackSnapshot;
@@ -107,7 +106,6 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
         if (!_started) return;
         
         _snapshotEvents.OnEnterGameSnapshot -= SendGameSnapshot;
-        _snapshotEvents.OnCharSnapshot -= SendCharSnapshot;
         _snapshotEvents.OnCharExitSnapshot -= SendCharCharExitSnapshot;
         _snapshotEvents.OnMoveSnapshot -= SendMoveSnapshot;
         _snapshotEvents.OnAttackSnapshot -= SendAttackSnapshot;
@@ -177,14 +175,14 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
         _processor.WriteNetSerializable(_writer, ref snapshot);
         _peersByCharId[snapshot.CharId].Send(_writer, DeliveryMethod.ReliableOrdered);
         _logger.LogInformation("Enviando GameSnapshot para CharId: {CharId}", snapshot.CharId);
-    }
-    
-    private void SendCharSnapshot(CharSnapshot snapshot)
-    {
+        
+        int currentCharId = snapshot.CharId;
+        CharSnapshot charSnapshot = snapshot.AllEntities.FirstOrDefault(cs => cs.CharId.CharacterId == currentCharId);
         _writer.Reset();
-        _processor.WriteNetSerializable(_writer, ref snapshot);
-        _server?.SendToAll(_writer, DeliveryMethod.ReliableOrdered, _peersByCharId[snapshot.CharId.CharacterId]);
-        _logger.LogInformation("Enviando CharSnapshot para CharId: {CharId}", snapshot.CharId);
+        _processor.WriteNetSerializable(_writer, ref charSnapshot);
+        _server?.SendToAll(_writer, DeliveryMethod.ReliableOrdered, _peersByCharId[snapshot.CharId]);
+        _logger.LogInformation("Enviando CharSnapshot para todos: {CharId}", snapshot.CharId);
+        
     }
     
     private void SendCharCharExitSnapshot(CharExitSnapshot snapshot)

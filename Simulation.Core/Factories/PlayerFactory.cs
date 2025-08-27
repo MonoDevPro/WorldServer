@@ -26,7 +26,8 @@ public static class PlayerFactory
             new TilePosition { Position = initialPosition },
             new Direction { Value = new GameVector2(0, 1) }, // Olhando para baixo
             new MoveSpeed { Value = 1.0f }, // Velocidade padrão 1 tile/segundo
-            new AttackSpeed { CastTime = 0.5f, Cooldown = 1.5f }
+            new AttackSpeed { CastTime = 0.5f, Cooldown = 1.5f },
+            new Blocking()
         );
 
         // Cria o snapshot DEPOIS que a entidade foi totalmente criada.

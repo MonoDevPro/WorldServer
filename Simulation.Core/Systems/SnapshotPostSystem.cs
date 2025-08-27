@@ -14,14 +14,7 @@ public partial class SnapshotPostSystem(World world)
     [All<GameSnapshot>]
     private void ProcessGameSnapshot(in Entity entity, in GameSnapshot snapshot)
     {
-        EventBus.Send(snapshot);
-        World.Destroy(entity);
-    }
-    
-    [Query]
-    [All<CharSnapshot>]
-    private void ProcessCharSnapshot(in Entity entity, in CharSnapshot snapshot)
-    {
+        // Envia o game snapshot para o EventBus processar e enviar para o jogador que entrou no jogo
         EventBus.Send(snapshot);
         World.Destroy(entity);
     }
