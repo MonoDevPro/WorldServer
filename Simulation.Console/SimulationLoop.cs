@@ -2,18 +2,19 @@ using System.Diagnostics;
 using Arch.Core;
 using Microsoft.Extensions.Logging;
 using Simulation.Core;
-using Simulation.Core.Abstractions.Commons.Components.Map;
+using Simulation.Core.Abstractions.Commons;
 using Simulation.Network;
 
 namespace Simulation.Console;
 
-public class SimulationLoop : IAsyncDisposable
+public class SimulationLoop(
+    ILogger<SimulationLoop> logger,
+    SimulationRunner runner,
+    MapLoaderService mapLoaderService,
+    NetworkSystem network,
+    World world)
+    : IAsyncDisposable
 {
-    private readonly ILogger<SimulationLoop> _logger;
-    private readonly SimulationRunner _runner;
-    private readonly NetworkSystem _network;
-    private readonly World _world;
-
     // 60 ticks por segundo (16.666...ms)
     private const double TickSeconds = 1.0 / 60.0;
     private readonly Stopwatch _mainTimer = new();
@@ -21,51 +22,57 @@ public class SimulationLoop : IAsyncDisposable
     // configuração de sleep (tuning)
     private const int MinDelayMsForTaskDelay = 2; // se >= 2ms, usamos Task.Delay; se < 2ms, usamos Task.Yield
 
-    public SimulationLoop(ILogger<SimulationLoop> logger,
-                          SimulationRunner runner,
-                          NetworkSystem network,
-                          World world)
-    {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _runner = runner ?? throw new ArgumentNullException(nameof(runner));
-        _network = network ?? throw new ArgumentNullException(nameof(network));
-        _world = world ?? throw new ArgumentNullException(nameof(world));
-    }
-
     /// <summary>
     /// Start the simulation loop. Observes cancellationToken to stop.
     /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Simulation starting");
+        // Loading map and starting network before entering main loop
+        logger.LogInformation("Loading initial map...");
+        try
+        {
+            // Load initial map (map 1 as seed)
+            if (!await mapLoaderService.LoadMapAsync(1, cancellationToken))
+            {
+                logger.LogCritical("Failed to load initial map (ID 1). Aborting startup.");
+                throw new InvalidOperationException("Failed to load initial map (ID 1)");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, "Exception while loading initial map (ID 1). Aborting startup.");
+            throw;
+        }
+        
+        logger.LogInformation("Simulation starting");
         // Start stopwatch before any timing calculations
         _mainTimer.Start();
         double accumulator = 0;
         var last = _mainTimer.Elapsed.TotalSeconds;
 
         // Enfileira comando para carregar mapa 1 (seed)
-        _world.Create(new MapLoadRequest { MapId = 1 });
-        _logger.LogInformation("Comando para carregar mapa 1 enfileirado.");
+        world.Create(new MapLoadRequest { MapId = 1 });
+        logger.LogInformation("Comando para carregar mapa 1 enfileirado.");
 
         // Inicia a network (sincronamente aqui) — se preferir, exponha StartAsync com timeout.
         try
         {
             // Se a sua network.Start pode bloquear por muito tempo, considere rodar em Task.Run com timeout.
-            if (!_network.Start())
+            if (!network.Start())
             {
-                _logger.LogCritical("Falha ao iniciar network. Abortando startup do Worker.");
+                logger.LogCritical("Falha ao iniciar network. Abortando startup do Worker.");
                 throw new InvalidOperationException("Falha ao iniciar network");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogCritical(ex, "Exceção ao iniciar o network no StartAsync.");
+            logger.LogCritical(ex, "Exceção ao iniciar o network no StartAsync.");
             throw;
         }
 
         try
         {
-            _logger.LogInformation("Entering main loop.");
+            logger.LogInformation("Entering main loop.");
             while (!cancellationToken.IsCancellationRequested)
             {
                 var now = _mainTimer.Elapsed.TotalSeconds;
@@ -82,7 +89,7 @@ public class SimulationLoop : IAsyncDisposable
                 {
                     try
                     {
-                        _runner.Update((float)TickSeconds);
+                        runner.Update((float)TickSeconds);
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
@@ -91,7 +98,7 @@ public class SimulationLoop : IAsyncDisposable
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Erro no SimulationRunner.Update()");
+                        logger.LogError(ex, "Erro no SimulationRunner.Update()");
                         // continue — não queremos matar o loop apenas por uma exceção
                     }
 
@@ -127,14 +134,14 @@ public class SimulationLoop : IAsyncDisposable
         }
         finally
         {
-            _logger.LogInformation("Simulation loop ending; stopping network...");
+            logger.LogInformation("Simulation loop ending; stopping network...");
             try
             {
-                _network.Stop();
+                network.Stop();
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Erro ao parar Network ao finalizar Worker");
+                logger.LogWarning(ex, "Erro ao parar Network ao finalizar Worker");
             }
         }
     }
@@ -142,9 +149,9 @@ public class SimulationLoop : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         // Safe dispose of runner, network, world (if non-null and disposable)
-        await SafeDisposeAsync(_runner).ConfigureAwait(false);
-        await SafeDisposeAsync(_network).ConfigureAwait(false);
-        await SafeDisposeAsync(_world).ConfigureAwait(false);
+        await SafeDisposeAsync(runner).ConfigureAwait(false);
+        await SafeDisposeAsync(network).ConfigureAwait(false);
+        await SafeDisposeAsync(world).ConfigureAwait(false);
     }
 
     private static async ValueTask SafeDisposeAsync(object? resource)

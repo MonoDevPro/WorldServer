@@ -1,21 +1,17 @@
 using Arch.Core;
-using Simulation.Core.Abstractions.Out;
+using Simulation.Core.Abstractions.Ports;
 
 namespace Simulation.Core.Utilities;
 
+    
 public sealed class EntityIndex : IEntityIndex
 {
-    // charId -> Entity (value contains Version/WorldId)
     private readonly Dictionary<int, Entity> _byCharId = new();
-
-    // entityId -> charId (fast inverse lookup to allow O(1) UnregisterEntity)
     private readonly Dictionary<int, int> _entityToChar = new();
 
     public void Register(int characterId, in Entity entity)
     {
-        // upsert char->entity
         _byCharId[characterId] = entity;
-        // upsert entity->char
         _entityToChar[entity.Id] = characterId;
     }
 
@@ -23,46 +19,40 @@ public sealed class EntityIndex : IEntityIndex
     {
         if (_byCharId.Remove(characterId, out var ent))
         {
-            _entityToChar.Remove(ent.Id, out _);
+            _entityToChar.Remove(ent.Id);
         }
     }
 
     public void UnregisterEntity(in Entity entity)
     {
-        // fastest path: lookup inverse map
         if (_entityToChar.Remove(entity.Id, out var charId))
         {
-            // attempt remove by charId (best-effort)
-            _byCharId.Remove(charId, out _);
+            _byCharId.Remove(charId);
             return;
         }
 
-        // fallback (rare): scan by value (only if inverse map missing)
         foreach (var kv in _byCharId)
         {
             if (kv.Value.Equals(entity))
             {
-                _byCharId.Remove(kv.Key, out _);
-                // also try cleanup inverse map
-                _entityToChar.Remove(entity.Id, out _);
+                _byCharId.Remove(kv.Key);
+                _entityToChar.Remove(entity.Id);
                 break;
             }
         }
     }
 
     public bool TryGetByCharId(int characterId, out Entity entity)
-    {
-        return _byCharId.TryGetValue(characterId, out entity);
-    }
+        => _byCharId.TryGetValue(characterId, out entity);
 
-    // utilitário: obter por entityId
     public bool TryGetByEntityId(int entityId, out Entity entity)
     {
         entity = default;
-        if (_entityToChar.TryGetValue(entityId, out var charId))
-        {
-            return _byCharId.TryGetValue(charId, out entity);
-        }
-        return false;
+        return _entityToChar.TryGetValue(entityId, out var charId) 
+               && _byCharId.TryGetValue(charId, out entity);
     }
+    public IReadOnlyCollection<int> GetAllCharIds() 
+        => _byCharId.Keys;
+    public bool TryGetCharIdByEntityId(int entityId, out int charId) 
+        => _entityToChar.TryGetValue(entityId, out charId);
 }

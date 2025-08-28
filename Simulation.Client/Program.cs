@@ -1,9 +1,9 @@
 using LiteNetLib;
 using LiteNetLib.Utils;
 using Microsoft.Extensions.Configuration;
-using Simulation.Core.Abstractions.Commons.VOs;
-using Simulation.Core.Abstractions.Intents.In;
-using Simulation.Core.Abstractions.Intents.Out;
+using Simulation.Core.Abstractions.Adapters;
+using Simulation.Core.Abstractions.Adapters.Data;
+using Simulation.Core.Abstractions.Commons;
 using Simulation.Network;
 
 namespace Simulation.Client;
@@ -22,14 +22,14 @@ class Program
     private static readonly NetPacketProcessor PacketProcessor = new NetPacketProcessor();
     
     // Adicione um dicionário para guardar os outros jogadores
-    private static readonly Dictionary<int, GameVector2> OtherPlayers = new();
+    private static readonly Dictionary<int, GameCoord> OtherPlayers = new();
 
     // player
     private static int CharId = -1;
 
     // authoritative / predicted positions
-    private static GameVector2 currentPosFromServer = new GameVector2(10, 10);
-    private static GameVector2 predictedPos = currentPosFromServer;
+    private static GameCoord currentPosFromServer = new GameCoord(10, 10);
+    private static GameCoord predictedPos = currentPosFromServer;
     
     static void Main()
     {
@@ -77,7 +77,7 @@ class Program
         {
             Console.WriteLine($"[DESCONECTADO] Motivo: {info.Reason}");
             _state = ClientState.Connecting;
-            currentPosFromServer = new GameVector2(10, 10);
+            currentPosFromServer = new GameCoord(10, 10);
             predictedPos = currentPosFromServer;
             OtherPlayers.Clear();
             CharId = -1;
@@ -91,9 +91,9 @@ class Program
             dataReader.Recycle();
         };
 
-        PacketProcessor.SubscribeNetSerializable<GameSnapshot>(HandleGameSnapshot); 
-        PacketProcessor.SubscribeNetSerializable<CharSnapshot>(HandleCharSnapshot);
-        PacketProcessor.SubscribeNetSerializable<CharExitSnapshot>(HandleCharExitSnapshot);
+        PacketProcessor.SubscribeNetSerializable<EnterSnapshot>(HandleGameSnapshot); 
+        PacketProcessor.SubscribeNetSerializable<CharTemplate>(HandleCharTemplate);
+        PacketProcessor.SubscribeNetSerializable<ExitSnapshot>(HandleCharExitSnapshot);
         PacketProcessor.SubscribeNetSerializable<MoveSnapshot>(HandleMoveSnapshot);
         PacketProcessor.SubscribeNetSerializable<AttackSnapshot>(HandleAttackSnapshot);
 
@@ -128,11 +128,11 @@ class Program
                         continue;
                     }
 
-                    GameVector2 dir;
-                    if (key == ConsoleKey.W) dir = new GameVector2(0, -1); // Y -1 = cima
-                    else if (key == ConsoleKey.S) dir = new GameVector2(0, 1);
-                    else if (key == ConsoleKey.A) dir = new GameVector2(-1, 0);
-                    else if (key == ConsoleKey.D) dir = new GameVector2(1, 0);
+                    GameCoord dir;
+                    if (key == ConsoleKey.W) dir = new GameCoord(0, -1); // Y -1 = cima
+                    else if (key == ConsoleKey.S) dir = new GameCoord(0, 1);
+                    else if (key == ConsoleKey.A) dir = new GameCoord(-1, 0);
+                    else if (key == ConsoleKey.D) dir = new GameCoord(1, 0);
                     else continue;
 
                     // create input with seq and send (unreliable sequenced)
@@ -140,7 +140,7 @@ class Program
                     SendMove(input);
                     
                     // apply locally for immediate feedback (prediction)
-                    predictedPos += dir; // velocidade fixa 1 unidade grid por input
+                    predictedPos = predictedPos.Sum(new GameCoord(dir.X, dir.Y)); // velocidade fixa 1 unidade grid por input
                     
                     Console.WriteLine($"[PREDICTION] Nova posição predi ta: {predictedPos.X},{predictedPos.Y}");
                 }
@@ -154,22 +154,24 @@ class Program
     
     // Em Simulation.Client/Program.cs
 
-    static void HandleGameSnapshot(GameSnapshot snapshot)
+    static void HandleGameSnapshot(EnterSnapshot snapshot)
     {
-        Console.WriteLine($"[GAME STATE] Bem-vindo ao mapa {snapshot.MapId}. Você é o CharId: {snapshot.CharId}");
+        var currentChar = snapshot.AllEntities.FirstOrDefault(cs => cs.CharId.Value == snapshot.currentCharId);
+        
+        Console.WriteLine($"[GAME STATE] Bem-vindo ao mapa {currentChar?.MapId}. Você é o CharId: {currentChar?.CharId}");
         _state = ClientState.InGame;
 
         OtherPlayers.Clear(); // Limpa a lista antiga
         foreach (var charSnap in snapshot.AllEntities)
         {
-            if (charSnap.CharId.CharacterId != CharId) // Se não for o nosso próprio personagem
+            if (charSnap.CharId.Value != CharId) // Se não for o nosso próprio personagem
             {
-                OtherPlayers[charSnap.CharId.CharacterId] = charSnap.Position.Position;
-                Console.WriteLine($" -> Jogador {charSnap.Info.Name} (ID:{charSnap.CharId.CharacterId}) está em ({charSnap.Position.Position.X},{charSnap.Position.Position.Y})");
+                OtherPlayers[charSnap.CharId.Value] = charSnap.Position.Value;
+                Console.WriteLine($" -> Jogador {charSnap.Name} (ID:{charSnap.CharId.Value}) está em ({charSnap.Position.Value.X},{charSnap.Position.Value.Y})");
             }
             else // Se for o nosso, atualiza nossa posição autoritativa
             {
-                currentPosFromServer = charSnap.Position.Position;
+                currentPosFromServer = charSnap.Position.Value;
                 predictedPos = currentPosFromServer;
                 Console.WriteLine($" -> Sua posição inicial é: ({currentPosFromServer.X},{currentPosFromServer.Y})");
             }
@@ -177,16 +179,16 @@ class Program
     }
     
     // Em Simulation.Client/Program.cs
-    static void HandleCharSnapshot(CharSnapshot snapshot)
+    static void HandleCharTemplate(CharTemplate snapshot)
     {
-        if (snapshot.CharId.CharacterId == CharId) return; // Ignora nosso próprio snapshot aqui
+        if (snapshot.CharId.Value == CharId) return; // Ignora nosso próprio snapshot aqui
 
-        OtherPlayers[snapshot.CharId.CharacterId] = snapshot.Position.Position;
-        Console.WriteLine($"[ENTROU] Jogador {snapshot.Info.Name} (ID:{snapshot.CharId.CharacterId}) entrou no mapa em ({snapshot.Position.Position.X},{snapshot.Position.Position.Y})");
+        OtherPlayers[snapshot.CharId.Value] = snapshot.Position.Value;
+        Console.WriteLine($"[ENTROU] Jogador {snapshot.Name} (ID:{snapshot.CharId.Value}) entrou no mapa em ({snapshot.Position.Value.X},{snapshot.Position.Value.Y})");
     }
     
     // Em Simulation.Client/Program.cs
-    static void HandleCharExitSnapshot(CharExitSnapshot snapshot)
+    static void HandleCharExitSnapshot(ExitSnapshot snapshot)
     {
         if (OtherPlayers.Remove(snapshot.CharId))
         {

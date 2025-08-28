@@ -1,15 +1,10 @@
-using System.Numerics;
 using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
 using Microsoft.Extensions.Logging;
-using Simulation.Core.Abstractions.Commons.Components;
-using Simulation.Core.Abstractions.Commons.Components.Char;
-using Simulation.Core.Abstractions.Commons.Components.Move;
-using Simulation.Core.Abstractions.Commons.VOs;
-using Simulation.Core.Abstractions.Intents.In;
-using Simulation.Core.Abstractions.Intents.Out;
-using Simulation.Core.Utilities;
+using Simulation.Core.Abstractions.Adapters;
+using Simulation.Core.Abstractions.Commons;
+using Simulation.Core.Abstractions.Ports;
 
 namespace Simulation.Core.Systems;
 
@@ -21,26 +16,26 @@ namespace Simulation.Core.Systems;
 /// - ProcessMovement atualiza Elapsed e completa movimento quando Elapsed >= Duration
 /// - ao completar, atualiza TilePosition (inteiro), marca SpatialIndexDirty e enfileira update no grid
 /// </summary>
-public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, ILogger<GridMovementSystem> logger)
+public sealed partial class GridMovementSystem(World world, IMapIndex map, ISpatialIndex grid, IEntityIndex indexer, ILogger<GridMovementSystem> logger)
     : BaseSystem<World, float>(world)
 {
     // Recebe intents — tenta iniciar um movimento se a entidade não estiver já se movendo
     [Query]
     [All<MoveIntent>]
-    [All<MapRef>]
-    [All<TilePosition>]
-    [All<MoveSpeed>]
-    private void ProcessIntent(in Entity entity, in MoveIntent intent, in MapRef mapRef, ref TilePosition pos, ref MoveSpeed speed)
+    [All<MapId>]
+    [All<Position>]
+    [All<MoveStats>]
+    private void ProcessIntent(in Entity entity, in MoveIntent intent, in MapId mapId, ref Position pos, ref MoveStats stats)
     {
         // If zero input -> ignore (no-op)
-        if (intent.Input.IsZero)
+        if (intent.Input.IsZero())
         {
             World.Remove<MoveIntent>(entity);
             return;
         }
 
         // If already moving, ignore new intents (simple policy)
-        if (World.Has<MoveState>(entity))
+        if (World.Has<MoveAction>(entity))
         {
             logger.LogDebug("Entity {EntityId}: intent ignored because already moving.", entity.Id);
             World.Remove<MoveIntent>(entity);
@@ -49,17 +44,17 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, 
 
         // compute target tile: one step in sign(input)
         var dir = intent.Input.Sign();
-        var start = pos.Position;
-        var target = new GameVector2(start.X + dir.X, start.Y + dir.Y);
+        var start = pos.Value;
+        var target = new GameCoord(start.X + dir.X, start.Y + dir.Y);
 
         // validate movement
-        if (IsMoveInvalid(entity, mapRef.MapId, target))
+        if (IsMoveInvalid(entity, mapId.Value, target))
         {
             logger.LogInformation("Entity {EntityId}: attempted move from {Start} to blocked target {Target}.", entity.Id, start, target);
             World.Remove<MoveIntent>(entity);
             
             // Envia reconciliação
-            var charId = World.Get<CharId>(entity).CharacterId;
+            var charId = World.Get<CharId>(entity).Value;
             World.Add<MoveSnapshot>(entity, new MoveSnapshot(charId, start, start));
             return;
         }
@@ -68,13 +63,13 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, 
         var dx = target.X - start.X;
         var dy = target.Y - start.Y;
         var distance = MathF.Sqrt(dx*dx + dy*dy); // usually 1 or sqrt(2)
-        var spd = speed.Value;
+        var spd = stats.Speed;
         if (spd <= 0f) spd = 1f; // fallback to avoid div0
 
         var duration = distance / spd;
         if (duration <= 0f) duration = 0.001f; // tiny epsilon to ensure progress
 
-        var state = new MoveState
+        var state = new MoveAction
         {
             Start = start,
             Target = target,
@@ -82,7 +77,7 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, 
             Duration = duration
         };
 
-        World.Add<MoveState>(entity, state);
+        World.Add<MoveAction>(entity, state);
         logger.LogInformation("Entity {EntityId}: started movement {Start} -> {Target} duration={Duration:F3}s (speed={Speed})", entity.Id, start, target, duration, spd);
 
         // Remove the intent (consumed)
@@ -92,7 +87,7 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, 
         // Example: if you want to send intermediate positions for smooth client visuals, add a MoveSnapshot component:
         if (World.Has<CharId>(entity))
         {
-            var charId = World.Get<CharId>(entity).CharacterId;
+            var charId = World.Get<CharId>(entity).Value;
             World.Add<MoveSnapshot>(entity, new MoveSnapshot(charId, start, target));
         }
 
@@ -100,7 +95,7 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, 
         try
         {
             if (!grid.IsRegistered(entity.Id))
-                grid.Register(entity.Id, mapRef.MapId, start);
+                grid.Register(entity.Id, mapId.Value, start);
         }
         catch (Exception ex)
         {
@@ -110,17 +105,17 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, 
 
     // Process ongoing movements
     [Query]
-    [All<MapRef>]
-    [All<TilePosition>]
-    [All<MoveState>]
-    private void ProcessMovement([Data] in float dt, in Entity e, ref TilePosition pos, ref MoveState state,
-        in MapRef mapRef)
+    [All<MapId>]
+    [All<Position>]
+    [All<MoveAction>]
+    private void ProcessMovement([Data] in float dt, in Entity e, ref Position pos, ref MoveAction action,
+        in MapId mapId)
     {
         if (dt <= 0f)
             return;
 
-        state.Elapsed += dt;
-        var t = state.Duration > 0f ? MathF.Min(state.Elapsed / state.Duration, 1f) : 1f;
+        action.Elapsed += dt;
+        var t = action.Duration > 0f ? MathF.Min(action.Elapsed / action.Duration, 1f) : 1f;
 
         // Optionally we could expose a float position for interpolation (visual). Here we keep TilePosition integer,
         // and only update it when movement completes to preserve rule-consistency.
@@ -128,38 +123,35 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, 
             return;
         
         // Movement complete: update authoritative TilePosition (integer)
-        var old = pos.Position;
-        pos.Position = state.Target;
+        var old = pos.Value;
+        pos.Value = action.Target;
 
         // mark spatial index dirty + enqueue update (batch)
-        ref var dirty = ref World.AddOrGet<SpatialIndexDirty>(e);
-        dirty.Old = state.Start;
-        dirty.New = state.Target;
-        dirty.MapId = mapRef.MapId;
+        World.Add<SpatialDirty>(e, new SpatialDirty(action.Start, action.Target));
 
-        grid.EnqueueUpdate(e.Id, mapRef.MapId, state.Start, state.Target);
+        grid.EnqueueUpdate(e.Id, mapId.Value, action.Start, action.Target);
 
         // remove movement state
-        World.Remove<MoveState>(e);
+        World.Remove<MoveAction>(e);
 
-        logger.LogInformation("Entity {EntityId}: completed movement {Old} -> {New}", e.Id, old, pos.Position);
+        logger.LogInformation("Entity {EntityId}: completed movement {Old} -> {New}", e.Id, old, pos.Value);
     }
 
     // check static and dynamic blocking; uses spatial index for dynamic entities
-    private bool IsMoveInvalid(Entity entity, int mapId, GameVector2 target)
+    private bool IsMoveInvalid(Entity entity, int mapId, GameCoord target)
     {
-        if (!MapIndex.TryGetMap(mapId, out var map))
+        if (!map.TryGetMap(mapId, out var currentMap))
         {
             logger.LogWarning("Entity {EntityId}: map {MapId} not found.", entity.Id, mapId);
             return true;
         }
 
-        if (target.X < 0 || target.Y < 0 || target.X >= map.Width || target.Y >= map.Height)
+        if (target.X < 0 || target.Y < 0 || target.X >= currentMap.Width || target.Y >= currentMap.Height)
         {
             return true;
         }
 
-        if (map.IsBlocked(target))
+        if (currentMap.IsBlocked(target))
         {
             return true;
         }
@@ -169,7 +161,11 @@ public sealed partial class GridMovementSystem(World world, ISpatialIndex grid, 
         {
             // ignore self if already registered on same tile
             if (eid == entity.Id) return;
-            var other = grid.GetEntity(eid);
+            
+            // entity not found
+            if (!indexer.TryGetByEntityId(eid, out var other))
+                return;
+            
             if (World.Has<Blocking>(other))
             {
                 blockedByEntity = true;

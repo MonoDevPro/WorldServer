@@ -1,13 +1,11 @@
 using Arch.Core;
-using Arch.System;
 using Microsoft.Extensions.DependencyInjection;
-using Simulation.Core.Abstractions.In;
-using Simulation.Core.Abstractions.In.Factories;
-using Simulation.Core.Abstractions.Out;
-using Simulation.Core.Adapters.Out;
-using Simulation.Core.Factories;
+using Simulation.Core.Abstractions.Ports;
+using Simulation.Core.Adapters;
 using Simulation.Core.Systems;
 using Simulation.Core.Utilities;
+using Simulation.Core.Utilities.Factories;
+using PlayerLifecycleSystem = Simulation.Core.Adapters.PlayerLifecycleSystem;
 
 namespace Simulation.Core;
 
@@ -15,29 +13,33 @@ public static class Services
 {
     public static IServiceCollection AddSimulationCore(this IServiceCollection services)
     {
-        // Registering the snapshot events service -> 
-        services.AddSingleton<SnapshotEvents>();
-        services.AddSingleton<ISnapshotEvents>(provider => provider.GetRequiredService<SnapshotEvents>());
-        
-        // Registering the intent producer service -> Exit from ecs world
-        services.AddSingleton<IIntentProducer, IntentsEnqueueSystem>(provider => provider.GetRequiredService<IntentsEnqueueSystem>());
-        
         // World and indices
-        services.AddSingleton<IWorldFactory, WorldFactory>();
-        services.AddSingleton(provider =>
-        {
-            var worldFactory = provider.GetRequiredService<IWorldFactory>();
-            return worldFactory.Create();
-        });
-        services.AddSingleton<ISpatialIndex, SpatialHashGrid>();
+        services.AddSingleton<World>(provider => WorldFactory.Create());
+        services.AddSingleton<ICharIndex, CharIndex>();
+        services.AddSingleton<ISpatialIndex, SpatialIndex>();
         services.AddSingleton<IEntityIndex, EntityIndex>();
+        services.AddSingleton<IMapIndex, MapIndex>();
 
         // Systems
-        services.AddSingleton<MapLoaderSystem>();
-        services.AddSingleton<IntentsEnqueueSystem>();
+        services.AddSingleton<MapLoaderSystem>(); // BaseSystem — registre e chame Update no loop
+        services.AddSingleton<IMapLoaderSystem>(sp => sp.GetRequiredService<MapLoaderSystem>());
+        
+        // Registering the lifecycle service -> Update and manage entity lifetimes
+        services.AddSingleton<PlayerLifecycleSystem>(); // BaseSystem — registre e chame Update no loop
+        services.AddSingleton<PlayerSpawnSystem>(); // BaseSystem — registre e chame Update no loop
+        services.AddSingleton<PlayerDespawnSystem>(); // BaseSystem — registre e chame Update no loop
+        services.AddSingleton<ILifecycleSystem, PlayerLifecycleSystem>(provider => provider.GetRequiredService<PlayerLifecycleSystem>());
+        
+        // Registering the intent producer service -> Exit from ecs world
+        services.AddSingleton<IntentEnqueueSystem>(); // BaseSystem — registre e chame Update no loop
+        services.AddSingleton<IIntentHandler, IntentEnqueueSystem>(provider => provider.GetRequiredService<IntentEnqueueSystem>());
+        
+        // Registering the snapshot events service -> 
+        services.AddSingleton<SnapshotPublisherSystem>(); // BaseSystem — registre e chame Update no loop
+        services.AddSingleton<ISnapshotPublisher>(provider => provider.GetRequiredService<SnapshotPublisherSystem>());
+        
         services.AddSingleton<IntentsDequeueSystem>();
-        services.AddSingleton<PlayerLifecycleSystem>();
-        services.AddSingleton<SpawnDespawnSystem>();
+        services.AddSingleton<LifetimeSystem>();
         services.AddSingleton<GridMovementSystem>();
         services.AddSingleton<TeleportSystem>();
         services.AddSingleton<SpatialIndexCommitSystem>();

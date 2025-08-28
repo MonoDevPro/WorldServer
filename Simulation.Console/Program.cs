@@ -24,11 +24,8 @@ services.Configure<NetworkOptions>(configuration.GetSection(NetworkOptions.Secti
 services.AddSimulationCore();
 services.AddSimulationNetwork();
 services.AddSingleton<SimulationLoop>();
+services.AddSingleton<MapLoaderService>();
 services.Replace(ServiceDescriptor.Singleton<SimulationPipeline>(sp => new SystemPipelineAdapter(sp)));
-
-// Alternativa (recomendada caso o adapter tenha dependências resolvíveis):
-// services.AddSingleton<SystemPipelineAdapter>();
-// services.AddSingleton<SimulationPipeline>(sp => sp.GetRequiredService<SystemPipelineAdapter>());
 
 await using var provider = services.BuildServiceProvider();
 

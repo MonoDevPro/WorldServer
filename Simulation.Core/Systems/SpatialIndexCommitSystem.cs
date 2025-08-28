@@ -1,11 +1,9 @@
 // SpatialIndexCommitSystem.cs
-using System;
-using System.Collections.Generic;
 using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
-using Simulation.Core.Abstractions.Commons.Components;
-using Simulation.Core.Utilities;
+using Simulation.Core.Abstractions.Commons;
+using Simulation.Core.Abstractions.Ports;
 
 namespace Simulation.Core.Systems
 {
@@ -14,15 +12,15 @@ namespace Simulation.Core.Systems
 
         // Coleta todos os SpatialIndexDirty e enfileira no próprio grid (defensivamente)
         [Query]
-        [All<SpatialIndexDirty>]
-        [All<MapRef>]
-        private void CollectDirty(in Entity e, in SpatialIndexDirty dirty, in MapRef map)
+        [All<SpatialDirty>]
+        [All<MapId>]
+        private void CollectDirty(in Entity e, in SpatialDirty dirty, in MapId map)
         {
             // Enfilera no grid (se ainda não enfileirado a mesma entidade)
-            grid.EnqueueUpdate(e.Id, dirty.MapId, dirty.Old, dirty.New);
+            grid.EnqueueUpdate(e.Id, map.Value, dirty.Old, dirty.New);
 
             // removemos o marker: a própria Flush() não precisa do componente
-            World.Remove<SpatialIndexDirty>(e);
+            World.Remove<SpatialDirty>(e);
         }
 
         // Atenção: para aplicar todos de uma vez, garantimos que este método seja executado

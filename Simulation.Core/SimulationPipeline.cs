@@ -1,6 +1,7 @@
 using Arch.Core;
 using Arch.System;
 using Microsoft.Extensions.DependencyInjection;
+using Simulation.Core.Adapters;
 using Simulation.Core.Systems;
 
 namespace Simulation.Core;
@@ -19,20 +20,26 @@ public class SimulationPipeline : List<BaseSystem<World, float>>
     private void Configure()
     {
         // --- In ---
-        // 1. Enfileira comandos vindos de fora do mundo ECS.
-        Add(_provider.GetRequiredService<IntentsEnqueueSystem>());
-        
-        // --- Processamento de Comandos ---
-        // 2. Processa os comandos da fila, criando/alterando entidades.
-        Add(_provider.GetRequiredService<IntentsDequeueSystem>());
-        
-        // 3. Adiciona o sistema que faltava: carrega os mapas necessários.
-        // Deve vir logo após o dequeue, caso um comando solicite o carregamento de um mapa.
+        // 0. Adiciona sistemas que aceitam dados externos (network, admin...) e enfileiram intents / map loads.
         Add(_provider.GetRequiredService<MapLoaderSystem>());
         
+        // Recebe enter/exit intents (translates external sessions into intent-entities)
+        Add(_provider.GetRequiredService<PlayerLifecycleSystem>());
+        
+        // System that reads network packets and enqueues intents into a safe queue (if you have one)
+        Add(_provider.GetRequiredService<IntentEnqueueSystem>());
+        
+        // --- Processamento de Comandos ---
+        // 2. Processa commands que foram enfileirados -> aplica intents, cria/destroi entidades
+        Add(_provider.GetRequiredService<IntentsDequeueSystem>());
+        
         // --- Lógica Principal da Simulação ---
-        Add(_provider.GetRequiredService<PlayerLifecycleSystem>()); // Adicionado
-        Add(_provider.GetRequiredService<SpawnDespawnSystem>());
+        // Spawn/Despawn: colocar antes do movimento se você quer que spawns participem do mesmo tick.
+        Add(_provider.GetRequiredService<PlayerSpawnSystem>());
+        Add(_provider.GetRequiredService<PlayerDespawnSystem>());
+        Add(_provider.GetRequiredService<LifetimeSystem>());
+        
+        // --- Lógica Principal da Simulação ---
         Add(_provider.GetRequiredService<GridMovementSystem>());
         Add(_provider.GetRequiredService<TeleportSystem>());
         Add(_provider.GetRequiredService<AttackSystem>());
@@ -44,5 +51,6 @@ public class SimulationPipeline : List<BaseSystem<World, float>>
         // --- Out ---
         // Gera os "snapshots" ou eventos de saída para o mundo externo.
         Add(_provider.GetRequiredService<SnapshotPostSystem>());
+        Add(_provider.GetRequiredService<SnapshotPublisherSystem>());
     }
 }

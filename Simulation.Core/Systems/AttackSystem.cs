@@ -1,40 +1,32 @@
 using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
-using Microsoft.Extensions.Logging; // Adicionado
-using Simulation.Core.Abstractions.Commons.Components;
-using Simulation.Core.Abstractions.Commons.Components.Attack;
-using Simulation.Core.Abstractions.Intents.In;
-using Simulation.Core.Abstractions.Intents.Out;
-using Simulation.Core.Abstractions.Out;
-using Simulation.Core.Utilities;
+using Microsoft.Extensions.Logging;
+using Simulation.Core.Abstractions.Adapters;
+using Simulation.Core.Abstractions.Commons; // Adicionado
+using Simulation.Core.Abstractions.Ports;
 
 namespace Simulation.Core.Systems;
 
-public sealed partial class AttackSystem : BaseSystem<World, float>
+public sealed partial class AttackSystem(
+    World world,
+    ISpatialIndex grid,
+    IEntityIndex entityIndex,
+    ILogger<AttackSystem> logger)
+    : BaseSystem<World, float>(world)
 {
-    private readonly ISpatialIndex _grid;
-    private readonly IEntityIndex _entityIndex;
-    private readonly ILogger<AttackSystem> _logger; // Adicionado
 
-    public AttackSystem(World world, ISpatialIndex grid, IEntityIndex entityIndex, ILogger<AttackSystem> logger) : base(world) // Adicionado
-    {
-        _grid = grid;
-        _entityIndex = entityIndex;
-        _logger = logger; // Adicionado
-    }
-    
     [Query]
     [All<AttackIntent>]
-    [All<AttackSpeed>]
+    [All<AttackStats>]
     [None<AttackAction>]
-    private void ProcessAttackIntent(in Entity e, in AttackIntent cmd, in AttackSpeed speed)
+    private void ProcessAttackIntent(in Entity e, in AttackIntent cmd, in AttackStats stats)
     {
         var attackAction = new AttackAction
         {
-            Duration = speed.CastTime,
-            Remaining = speed.CastTime,
-            Cooldown = speed.Cooldown,
+            Duration = stats.CastTime,
+            Remaining = stats.CastTime,
+            Cooldown = stats.Cooldown,
             CooldownRemaining = 0f
         };
         var attackSnapshot = new AttackSnapshot(cmd.AttackerCharId);
@@ -42,14 +34,14 @@ public sealed partial class AttackSystem : BaseSystem<World, float>
         World.AddRange(e, new Span<object>([attackAction, attackSnapshot]));
         World.Remove<AttackIntent>(e);
         
-        _logger.LogInformation("Ataque iniciado pela entidade {EntityId} (CharId: {CharId})", e.Id, cmd.AttackerCharId);
+        logger.LogInformation("Ataque iniciado pela entidade {EntityId} (CharId: {CharId})", e.Id, cmd.AttackerCharId);
     }
     
     [Query]
     [All<AttackAction>]
-    [All<TilePosition>]
-    [All<MapRef>]
-    private void ProcessAttackAction([Data] in float dt, in Entity e, ref AttackAction a, in TilePosition pos, in MapRef map)
+    [All<Position>]
+    [All<MapId>]
+    private void ProcessAttackAction([Data] in float dt, in Entity e, ref AttackAction a, in Position pos, in MapId map)
     {
         if (a.Remaining > 0f)
         {
@@ -60,17 +52,17 @@ public sealed partial class AttackSystem : BaseSystem<World, float>
                 a.CooldownRemaining = a.Cooldown;
 
                 var range = 1; 
-                _logger.LogInformation("Ataque da entidade {EntityId} finalizado em {Position}. Procurando alvos no alcance {Range}", e.Id, pos.Position, range);
+                logger.LogInformation("Ataque da entidade {EntityId} finalizado em {Position}. Procurando alvos no alcance {Range}", e.Id, pos.Value, range);
 
                 var attackerId = e.Id;
-                _grid.QueryRadius(map.MapId, pos.Position, range, targetEid =>
+                grid.QueryRadius(map.Value, pos.Value, range, targetEid =>
                 {
                     if (targetEid == attackerId) return;
 
-                    if (!_entityIndex.TryGetByEntityId(targetEid, out var targetEntity))
+                    if (!entityIndex.TryGetByEntityId(targetEid, out var targetEntity))
                         return;
                     
-                    _logger.LogDebug(" -> Alvo em potencial: entidade {TargetEntityId}", targetEid);
+                    logger.LogDebug(" -> Alvo em potencial: entidade {TargetEntityId}", targetEid);
                     
                     // TODO: Lógica de dano
                 });

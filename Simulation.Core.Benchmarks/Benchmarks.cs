@@ -1,5 +1,6 @@
 using BenchmarkDotNet.Attributes;
-using Simulation.Core.Abstractions.Commons.VOs;
+using Simulation.Core.Abstractions.Adapters.Data;
+using Simulation.Core.Abstractions.Commons;
 using Simulation.Core.Utilities;
 
 namespace Simulation.Core.Benchmarks;
@@ -18,10 +19,10 @@ public class MapAccessBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        _map = MapData.Create(0, "MapTest", Size, Size, UsePadded);
-        var tilesRow = new MapData.TileType[Size*Size];
+        _map = MapData.CreateFromTemplate(0, "MapTest", Size, Size, UsePadded);
+        var tilesRow = new TileType[Size*Size];
         var collRow = new byte[Size*Size];
-        for(int i=0;i<tilesRow.Length;i++){ tilesRow[i]=MapData.TileType.Floor; collRow[i]=0;}
+        for(int i=0;i<tilesRow.Length;i++){ tilesRow[i]=TileType.Floor; collRow[i]=0;}
         for(int y=0;y<Size;y+=16) for(int x=0;x<Size;x+=16) collRow[y*Size + x] = 1;
         _map.PopulateFromRowMajor(tilesRow, collRow);
         _rnd = new Random(42);
@@ -33,7 +34,7 @@ public class MapAccessBenchmarks
         int hits = 0;
         int iterations = 1_000_000;
         for(int i=0;i<iterations;i++){
-            GameVector2 p = new GameVector2(_rnd.Next(Size), _rnd.Next(Size));
+            GameCoord p = new GameCoord(_rnd.Next(Size), _rnd.Next(Size));
             if (_map.IsBlocked(p)) hits++;
         }
         return hits;

@@ -6,10 +6,10 @@ using LiteNetLib;
 using LiteNetLib.Utils;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Simulation.Core.Abstractions.In;
-using Simulation.Core.Abstractions.Intents.In;
-using Simulation.Core.Abstractions.Intents.Out;
-using Simulation.Core.Abstractions.Out;
+using Simulation.Core.Abstractions.Adapters;
+using Simulation.Core.Abstractions.Adapters.Data;
+using Simulation.Core.Abstractions.Commons;
+using Simulation.Core.Abstractions.Ports;
 
 namespace Simulation.Network;
 
@@ -22,22 +22,27 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
     
     private bool _started;
     private readonly ILogger<NetworkSystem> _logger;
-    private readonly IIntentProducer _intentProducer;
-    private readonly ISnapshotEvents _snapshotEvents;
+    private readonly IIntentHandler _intentProducer;
+    private readonly ISnapshotPublisher _snapshotEvents;
+    
+    // Test -> isso vai vir do db futuramente.
+    private readonly ILifecycleSystem _lifecycleSystem;
     
     private readonly Dictionary<NetPeer, int> _charIdsByPeer = new();
     private readonly Dictionary<int, NetPeer> _peersByCharId = new();
 
     public NetworkSystem(ILogger<NetworkSystem> logger,
-        IIntentProducer intentProducer,
-        ISnapshotEvents snapshotEvents,
+        IIntentHandler intentProducer,
+        ISnapshotPublisher snapshotEvents,
         IOptions<NetworkOptions> options,
+        ILifecycleSystem lifecycleSystem,
         World world) : base(world)
     {
         _logger = logger;
         _intentProducer = intentProducer;
         _snapshotEvents = snapshotEvents;
         _options = options.Value;
+        _lifecycleSystem = lifecycleSystem;
         
         // --- REGISTRO DE HANDLERS USANDO INTERCEPTORES ---
 
@@ -49,6 +54,20 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
                 _logger.LogWarning("Peer {EndPoint} já autenticado. Ignorando novo EnterGameIntent.", peer.Address);
                 return;
             }
+            
+            var charTemplate = new CharTemplate
+            {
+                CharId = new CharId(intent.CharacterId),
+                MapId = new MapId(1), // Default map
+                Position = new Position { Value = new GameCoord(0, 0) }, // Default position
+                Direction = new Direction { Value = new GameDirection(0, 0) }, // Default direction
+                MoveStats = new MoveStats { Speed = 1f },
+                AttackStats = new AttackStats { CastTime = 1f, Cooldown = 1f },
+                Blocking = new Blocking()
+            };
+            
+            _lifecycleSystem.EnqueueSpawn(charTemplate);
+            
             _charIdsByPeer[peer] = intent.CharacterId;
             _peersByCharId[intent.CharacterId] = peer;
             peer.Tag = intent.CharacterId;
@@ -169,23 +188,23 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
         });
     }
     
-    private void SendGameSnapshot(GameSnapshot snapshot)
+    private void SendGameSnapshot(EnterSnapshot snapshot)
     {
         _writer.Reset();
         _processor.WriteNetSerializable(_writer, ref snapshot);
-        _peersByCharId[snapshot.CharId].Send(_writer, DeliveryMethod.ReliableOrdered);
-        _logger.LogInformation("Enviando GameSnapshot para CharId: {CharId}", snapshot.CharId);
+        _peersByCharId[snapshot.currentCharId].Send(_writer, DeliveryMethod.ReliableOrdered);
+        _logger.LogInformation("Enviando GameSnapshot para CharId: {CharId}", snapshot.currentCharId);
         
-        int currentCharId = snapshot.CharId;
-        CharSnapshot charSnapshot = snapshot.AllEntities.FirstOrDefault(cs => cs.CharId.CharacterId == currentCharId);
+        int currentCharId = snapshot.currentCharId;
+        CharTemplate? charSnapshot = snapshot.AllEntities.FirstOrDefault(cs => cs.CharId.Value == currentCharId);
         _writer.Reset();
         _processor.WriteNetSerializable(_writer, ref charSnapshot);
-        _server?.SendToAll(_writer, DeliveryMethod.ReliableOrdered, _peersByCharId[snapshot.CharId]);
-        _logger.LogInformation("Enviando CharSnapshot para todos: {CharId}", snapshot.CharId);
+        _server?.SendToAll(_writer, DeliveryMethod.ReliableOrdered, _peersByCharId[snapshot.currentCharId]);
+        _logger.LogInformation("Enviando CharSnapshot para todos: {CharId}", snapshot.currentCharId);
         
     }
     
-    private void SendCharCharExitSnapshot(CharExitSnapshot snapshot)
+    private void SendCharCharExitSnapshot(ExitSnapshot snapshot)
     {
         _writer.Reset();
         _processor.WriteNetSerializable(_writer, ref snapshot);
