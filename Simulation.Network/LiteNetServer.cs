@@ -7,7 +7,7 @@ using LiteNetLib.Utils;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Simulation.Core.Abstractions.Adapters;
-using Simulation.Core.Abstractions.Adapters.Data;
+using Simulation.Core.Abstractions.Adapters.Char;
 using Simulation.Core.Abstractions.Commons;
 using Simulation.Core.Abstractions.Ports;
 
@@ -16,7 +16,6 @@ namespace Simulation.Network;
 public class NetworkSystem : BaseSystem<World, float>, INetEventListener
 {
     private NetManager? _server;
-    private readonly NetDataWriter _writer = new();
     private readonly NetPacketProcessor _processor = new();
     private readonly NetworkOptions _options;
     
@@ -25,31 +24,24 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
     private readonly IIntentHandler _intentProducer;
     private readonly ISnapshotPublisher _snapshotEvents;
     
-    // Test -> isso vai vir do db futuramente.
-    private readonly ILifecycleSystem _lifecycleSystem;
     
-    private readonly Dictionary<NetPeer, int> _charIdsByPeer = new();
-    private readonly Dictionary<int, NetPeer> _peersByCharId = new();
-
     public NetworkSystem(ILogger<NetworkSystem> logger,
         IIntentHandler intentProducer,
         ISnapshotPublisher snapshotEvents,
         IOptions<NetworkOptions> options,
-        ILifecycleSystem lifecycleSystem,
         World world) : base(world)
     {
         _logger = logger;
         _intentProducer = intentProducer;
         _snapshotEvents = snapshotEvents;
         _options = options.Value;
-        _lifecycleSystem = lifecycleSystem;
         
         // --- REGISTRO DE HANDLERS USANDO INTERCEPTORES ---
 
         // 1. EnterGame: Qualquer peer conectado pode enviar.
         _processor.SubscribeNetSerializable<EnterGameIntent, NetPeer>((intent, peer) =>
         {
-            if (_charIdsByPeer.ContainsKey(peer))
+            if (peer.Tag is not null)
             {
                 _logger.LogWarning("Peer {EndPoint} já autenticado. Ignorando novo EnterGameIntent.", peer.Address);
                 return;
@@ -57,34 +49,28 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
             
             var charTemplate = new CharTemplate
             {
-                CharId = new CharId(intent.CharacterId),
-                MapId = new MapId(1), // Default map
-                Position = new Position { Value = new GameCoord(0, 0) }, // Default position
-                Direction = new Direction { Value = new GameDirection(0, 0) }, // Default direction
-                MoveStats = new MoveStats { Speed = 1f },
-                AttackStats = new AttackStats { CastTime = 1f, Cooldown = 1f },
-                Blocking = new Blocking()
+                Name = "Player" + intent.CharId,
+                Gender = Gender.Male,
+                Vocation = Vocation.Mage,
+                CharId = intent.CharId,
+                MapId = 1, // Default map
+                Position = new GameCoord(0, 0), // Default position
+                Direction = new GameDirection(0, 1), // Default direction south
+                MoveSpeed = 1.0f,
+                AttackCastTime = 1.0f,
+                AttackCooldown = 1.0f,
             };
             
-            _lifecycleSystem.EnqueueSpawn(charTemplate);
+            intentProducer.EnqueueEnterGameIntent(intent, charTemplate);
+            peer.Tag = intent.CharId;
+            intentProducer.EnqueueEnterGameIntent(intent, charTemplate);
             
-            _charIdsByPeer[peer] = intent.CharacterId;
-            _peersByCharId[intent.CharacterId] = peer;
-            peer.Tag = intent.CharacterId;
-            intentProducer.EnqueueEnterGameIntent(intent);
-            
-            _logger.LogInformation("Peer {EndPoint} autenticado com CharId: {CharId}", peer.Address, intent.CharacterId);
+            _logger.LogInformation("Peer {EndPoint} autenticado com CharId: {CharId}", peer.Address, intent.CharId);
         });
 
         // 2. Ações em jogo: Apenas peers que já entraram no jogo (autenticados).
         RegisterAuthenticatedIntent<MoveIntent>((intent) => _intentProducer.EnqueueMoveIntent(intent));
         RegisterAuthenticatedIntent<AttackIntent>( (intent) => _intentProducer.EnqueueAttackIntent(intent));
-
-        // --- REGISTRO DE EVENTOS DE SAÍDA (SNAPSHOTS) ---
-        _snapshotEvents.OnEnterGameSnapshot += SendGameSnapshot;
-        _snapshotEvents.OnCharExitSnapshot += SendCharCharExitSnapshot;
-        _snapshotEvents.OnMoveSnapshot += SendMoveSnapshot;
-        _snapshotEvents.OnAttackSnapshot += SendAttackSnapshot;
     }
 
     public override void Update(in float delta)
@@ -124,10 +110,6 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
     {
         if (!_started) return;
         
-        _snapshotEvents.OnEnterGameSnapshot -= SendGameSnapshot;
-        _snapshotEvents.OnCharExitSnapshot -= SendCharCharExitSnapshot;
-        _snapshotEvents.OnMoveSnapshot -= SendMoveSnapshot;
-        _snapshotEvents.OnAttackSnapshot -= SendAttackSnapshot;
         _server?.Stop();
         
         _server = null;
@@ -140,12 +122,10 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
     {
         _logger.LogInformation("Peer desconectado: {EndPoint} Motivo: {Reason}", peer.Address, disconnectInfo.Reason);
         
-        if (peer.Tag is int charId)
+        if (!_peersByCharId.ContainsValue(peer)) return;
         {
             _logger.LogInformation("Enfileirando ExitGameIntent para o CharId: {CharId}", charId);
             _intentProducer.EnqueueExitGameIntent(new ExitGameIntent(charId));
-            _charIdsByPeer.Remove(peer);
-            _peersByCharId.Remove(charId);
             peer.Tag = null;
         }
     }
@@ -179,55 +159,41 @@ public class NetworkSystem : BaseSystem<World, float>, INetEventListener
     {
         _processor.SubscribeNetSerializable<T, NetPeer>((intent, peer) =>
         {
-            if (!_charIdsByPeer.ContainsKey(peer))
+            if (peer.Tag is null)
             {
-                _logger.LogWarning("Intent {IntentType} recebido de um peer não autenticado. Ignorando.", typeof(T).Name);
+                _logger.LogWarning("Peer {EndPoint} não autenticado. Ignorando {IntentType}.", peer.Address, typeof(T).Name);
                 return;
             }
+            
             onReceive(intent);
         });
     }
     
     private void SendGameSnapshot(EnterSnapshot snapshot)
     {
-        _writer.Reset();
-        _processor.WriteNetSerializable(_writer, ref snapshot);
-        _peersByCharId[snapshot.currentCharId].Send(_writer, DeliveryMethod.ReliableOrdered);
-        _logger.LogInformation("Enviando GameSnapshot para CharId: {CharId}", snapshot.currentCharId);
         
-        int currentCharId = snapshot.currentCharId;
-        CharTemplate? charSnapshot = snapshot.AllEntities.FirstOrDefault(cs => cs.CharId.Value == currentCharId);
-        _writer.Reset();
-        _processor.WriteNetSerializable(_writer, ref charSnapshot);
-        _server?.SendToAll(_writer, DeliveryMethod.ReliableOrdered, _peersByCharId[snapshot.currentCharId]);
-        _logger.LogInformation("Enviando CharSnapshot para todos: {CharId}", snapshot.currentCharId);
         
     }
     
     private void SendCharCharExitSnapshot(ExitSnapshot snapshot)
     {
-        _writer.Reset();
-        _processor.WriteNetSerializable(_writer, ref snapshot);
-        _server?.SendToAll(_writer, DeliveryMethod.ReliableOrdered);
-        _logger.LogInformation("Enviando CharExitSnapshot para CharId: {CharId}", snapshot.CharId);
+        
     }
 
     private void SendMoveSnapshot(MoveSnapshot snapshot)
     {
-        _writer.Reset();
-        _processor.WriteNetSerializable(_writer, ref snapshot);
-        _server?.SendToAll(_writer, DeliveryMethod.ReliableOrdered);
-        _logger.LogTrace("Enviando MoveSnapshot para CharId: {CharId}", snapshot.CharId);
+        
     }
     
     private void SendAttackSnapshot(AttackSnapshot snapshot)
     {
-        _writer.Reset();
-        _processor.WriteNetSerializable(_writer, ref snapshot);
-        _server?.SendToAll(_writer, DeliveryMethod.ReliableOrdered);
-        _logger.LogInformation("Enviando AttackSnapshot para CharId: {CharId}", snapshot.CharId);
+        
     }
 
     public void OnNetworkLatencyUpdate(NetPeer peer, int latency) { }
     public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType) => reader.Recycle();
+    public NetPeer? GetPeerByCharId(int charId)
+    {
+        return _peersByCharId.GetValueOrDefault(charId);
+    }
 }

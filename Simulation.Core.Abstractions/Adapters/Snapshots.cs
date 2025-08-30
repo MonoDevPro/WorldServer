@@ -1,5 +1,5 @@
 using LiteNetLib.Utils;
-using Simulation.Core.Abstractions.Adapters.Data;
+using Simulation.Core.Abstractions.Adapters.Char;
 using Simulation.Core.Abstractions.Commons;
 
 namespace Simulation.Core.Abstractions.Adapters;

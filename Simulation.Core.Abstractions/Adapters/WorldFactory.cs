@@ -2,7 +2,7 @@ using Arch.Core;
 
 namespace Simulation.Core.Utilities.Factories;
 
-internal static class WorldFactory
+public static class WorldFactory
 {
     public static World Create(
         int chunkSizeInBytes = 16_384, 

@@ -11,7 +11,8 @@ public class MapTemplate
     public TileType[]? TilesRowMajor { get; set; }
     public byte[]? CollisionRowMajor { get; set; }
     // ECS Identifiers
-    public MapId MapId { get; set; } = new(0);
-    public MapSize MapSize { get; set; } = new(new GameSize(0,0));
-    public MapFlags Flags { get; set; } = new(UsePadded: false);
+    public int MapId { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public bool UsePadded { get; set; } = false;
 }

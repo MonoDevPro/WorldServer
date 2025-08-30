@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using Arch.Core;
 using Arch.System;
 using Microsoft.Extensions.Logging;
-using Simulation.Core.Abstractions.Adapters.Data;
+using Simulation.Core.Abstractions.Adapters.Map;
 using Simulation.Core.Abstractions.Commons;
 using Simulation.Core.Abstractions.Ports;
 

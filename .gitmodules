@@ -1,0 +1,3 @@
+[submodule "QuadTrees"]
+	path = QuadTrees
+	url = https://github.com/MonoDevPro/QuadTrees

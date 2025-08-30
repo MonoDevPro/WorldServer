@@ -57,8 +57,8 @@ public class MapData
     {
         if (template == null) throw new ArgumentNullException(nameof(template));
 
-        int w = template.MapSize.Value.Width;
-        int h = template.MapSize.Value.Height;
+        int w = template.Width;
+        int h = template.Height;
 
         if (w <= 0 || h <= 0)
             throw new ArgumentException($"Invalid map dimensions in template MapId={template.MapId}: width={w}, height={h}");
@@ -80,7 +80,7 @@ public class MapData
             collision = new byte[expected]; // default = 0 -> no collision
         }
 
-        return new MapData(template.MapId.Value, template.Name ??= string.Empty, w, h, template.Flags.UsePadded);
+        return new MapData(template.MapId, template.Name ??= string.Empty, w, h, template.UsePadded);
     }
 
     // helpers
