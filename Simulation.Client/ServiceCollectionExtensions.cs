@@ -32,9 +32,6 @@ public static class ServiceCollectionExtensions
         // Gerenciamento de entrada
         services.AddSingleton<InputManager>();
         
-        // Loop principal
-        services.AddSingleton<ClientLoop>();
-
         return services;
     }
 }

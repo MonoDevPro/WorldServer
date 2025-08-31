@@ -55,7 +55,7 @@ public sealed partial class TeleportSystem(
             World.Add<SpatialDirty>(entity);
 
             // Envia um snapshot para notificar os clientes sobre o teleporte
-            var snapshot = new TeleportSnapshot(charId.Value, mapId.Value, pos);
+            var snapshot = new TeleportSnapshot(charId.Value, World.Get<MapId>(entity).Value, pos);
             EventBus.Send(in snapshot);
 
             logger.LogInformation("CharId {CharId} teletransportado para {Position} no mapa {MapId}",

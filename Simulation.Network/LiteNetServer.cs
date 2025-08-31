@@ -26,6 +26,7 @@ public class LiteNetServer : INetEventListener
     
     // Mapeamento para saber qual CharId está associado a qual NetPeer
     private readonly ConcurrentDictionary<NetPeer, int> _peerToCharId = new();
+    private readonly ConcurrentDictionary<int, NetPeer> _charIdToPeer = new();
 
     public NetManager Manager => _server;
 
@@ -60,15 +61,28 @@ public class LiteNetServer : INetEventListener
     public void Stop() => _server.Stop();
     
     // Mapeia um CharId a uma conexão de peer
-    public void MapPeerToChar(NetPeer peer, int charId) => _peerToCharId[peer] = charId;
+    public void MapPeerToChar(NetPeer peer, int charId)
+    {
+        // Se o peer já estava associado a outro CharId, remove a associação antiga
+        if (_peerToCharId.TryGetValue(peer, out var oldCharId) && oldCharId != charId)
+        {
+            _charIdToPeer.TryRemove(oldCharId, out _);
+        }
+
+        // Se já existe um peer anterior associado a este CharId, remove o vínculo antigo
+        if (_charIdToPeer.TryGetValue(charId, out var previousPeer) && previousPeer != peer)
+        {
+            _peerToCharId.TryRemove(previousPeer, out _);
+        }
+
+        _peerToCharId[peer] = charId;
+        _charIdToPeer[charId] = peer;
+    }
     public bool TryGetPeer(int charId, out NetPeer? peer)
     {
-        // Esta busca pode ser lenta se houver muitos jogadores.
-        // Para otimizar, mantenha um dicionário reverso CharId -> NetPeer.
-        var pair = _peerToCharId.FirstOrDefault(p => p.Value == charId);
-        if (pair.Key != null)
+        if (_charIdToPeer.TryGetValue(charId, out var p))
         {
-            peer = pair.Key;
+            peer = p;
             return true;
         }
         peer = null;
@@ -84,21 +98,49 @@ public class LiteNetServer : INetEventListener
             MapPeerToChar(peer, intent.CharId);
             _intentHandler.HandleIntent(in intent);
         });
-        
-        // Para todos os outros intents, verificamos se o peer já está autenticado (tem um CharId)
-        _packetProcessor.SubscribeNetSerializable<MoveIntent, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, () => _intentHandler.HandleIntent(intent)));
-        _packetProcessor.SubscribeNetSerializable<AttackIntent, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, () => _intentHandler.HandleIntent(intent)));
-        _packetProcessor.SubscribeNetSerializable<TeleportIntent, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, () => _intentHandler.HandleIntent(intent)));
-    }
-    
-    private void HandleAuthenticatedIntent<T>(T intent, NetPeer peer, Action process) where T : struct
-    {
-        if (!_peerToCharId.ContainsKey(peer))
+
+        // Para todos os outros intents, verificamos se o peer está autenticado E se o CharId do intent bate com o mapeado.
+        _packetProcessor.SubscribeNetSerializable<ExitIntent, NetPeer>((intent, peer) =>
         {
-            _logger.LogWarning("Intent {IntentType} recebido de um peer não autenticado {PeerEndPoint}. Ignorando.", typeof(T).Name, peer.Address);
-            return;
+            if (!TryValidatePeer(peer, intent.CharId)) return;
+            _intentHandler.HandleIntent(in intent);
+            // Desassocia o peer do CharId atual até um novo EnterIntent acontecer
+            _peerToCharId.TryRemove(peer, out _);
+            _charIdToPeer.TryRemove(intent.CharId, out _);
+        });
+
+        _packetProcessor.SubscribeNetSerializable<MoveIntent, NetPeer>((intent, peer) =>
+        {
+            if (!TryValidatePeer(peer, intent.CharId)) return;
+            _intentHandler.HandleIntent(in intent);
+        });
+
+        _packetProcessor.SubscribeNetSerializable<AttackIntent, NetPeer>((intent, peer) =>
+        {
+            if (!TryValidatePeer(peer, intent.AttackerCharId)) return;
+            _intentHandler.HandleIntent(in intent);
+        });
+
+        _packetProcessor.SubscribeNetSerializable<TeleportIntent, NetPeer>((intent, peer) =>
+        {
+            if (!TryValidatePeer(peer, intent.CharId)) return;
+            _intentHandler.HandleIntent(in intent);
+        });
+    }
+
+    private bool TryValidatePeer(NetPeer peer, int charId)
+    {
+        if (!_peerToCharId.TryGetValue(peer, out var mapped))
+        {
+            _logger.LogWarning("Intent para CharId {CharId} recebido de peer não autenticado {PeerEndPoint}. Ignorando.", charId, peer.Address);
+            return false;
         }
-        process();
+        if (mapped != charId)
+        {
+            _logger.LogWarning("Peer {PeerEndPoint} tentou enviar intent para CharId {CharId}, mas está associado a {MappedCharId}. Ignorando.", peer.Address, charId, mapped);
+            return false;
+        }
+        return true;
     }
 
     #region INetEventListener Implementation
@@ -110,6 +152,7 @@ public class LiteNetServer : INetEventListener
         _logger.LogInformation("Peer desconectado: {PeerEndPoint}. Motivo: {Reason}", peer.Address, disconnectInfo.Reason);
         if (_peerToCharId.TryRemove(peer, out var charId))
         {
+            _charIdToPeer.TryRemove(charId, out _);
             // Notifica o ECS que este personagem saiu do jogo
             _intentHandler.HandleIntent(new ExitIntent(charId));
         }

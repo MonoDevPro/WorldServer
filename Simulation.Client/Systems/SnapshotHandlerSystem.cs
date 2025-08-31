@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Arch.Buffer;
 using Arch.Core;
 using Arch.System;
@@ -21,6 +22,14 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
     // Mapeia CharId para Entity no mundo local
     private readonly Dictionary<int, Entity> _charIdToEntity = new();
 
+    // Filas thread-safe para snapshots recebidos da rede (evita mexer no CommandBuffer fora do Update)
+    private readonly ConcurrentQueue<EnterSnapshot> _enterQueue = new();
+    private readonly ConcurrentQueue<CharSnapshot> _charQueue = new();
+    private readonly ConcurrentQueue<ExitSnapshot> _exitQueue = new();
+    private readonly ConcurrentQueue<MoveSnapshot> _moveQueue = new();
+    private readonly ConcurrentQueue<AttackSnapshot> _attackQueue = new();
+    private readonly ConcurrentQueue<TeleportSnapshot> _teleportQueue = new();
+
     public SnapshotHandlerSystem(World world, ILogger<SnapshotHandlerSystem> logger) : base(world)
     {
         _logger = logger;
@@ -28,72 +37,94 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
 
     public override void Update(in float delta)
     {
-        // Aplica todas as mudanças agendadas no CommandBuffer
+        // Consome snapshots enfileirados pela thread de rede e agenda mudanças no CommandBuffer
+        while (_enterQueue.TryDequeue(out var e))
+        {
+            _logger.LogInformation("Processando EnterSnapshot para CharId {CharId} no MapId {MapId}", e.charId, e.mapId);
+            foreach (var template in e.templates)
+            {
+                CreateCharacterEntity(template);
+            }
+        }
+
+        while (_charQueue.TryDequeue(out var cs))
+        {
+            _logger.LogInformation("Processando CharSnapshot para CharId {CharId}", cs.CharId);
+            CreateCharacterEntity(cs.Template);
+        }
+
+        while (_exitQueue.TryDequeue(out var ex))
+        {
+            _logger.LogInformation("Processando ExitSnapshot para CharId {CharId}", ex.CharId);
+            if (_charIdToEntity.TryGetValue(ex.CharId, out var entity))
+            {
+                _cmd.Destroy(entity);
+                _charIdToEntity.Remove(ex.CharId);
+            }
+        }
+
+        while (_moveQueue.TryDequeue(out var mv))
+        {
+            _logger.LogTrace("Processando MoveSnapshot para CharId {CharId}: {OldPos} -> {NewPos}",
+                mv.CharId, $"({mv.OldPosition.X},{mv.OldPosition.Y})", $"({mv.NewPosition.X},{mv.NewPosition.Y})");
+            if (_charIdToEntity.TryGetValue(mv.CharId, out var entity))
+            {
+                _cmd.Set(entity, mv.NewPosition);
+            }
+        }
+
+        while (_attackQueue.TryDequeue(out var atk))
+        {
+            _logger.LogInformation("Processando AttackSnapshot para CharId {CharId}", atk.CharId);
+            if (_charIdToEntity.ContainsKey(atk.CharId))
+            {
+                _logger.LogInformation("Personagem {CharId} executou um ataque", atk.CharId);
+            }
+        }
+
+        while (_teleportQueue.TryDequeue(out var tp))
+        {
+            _logger.LogInformation("Processando TeleportSnapshot para CharId {CharId} para ({X},{Y}) no MapId {MapId}",
+                tp.CharId, tp.Position.X, tp.Position.Y, tp.MapId);
+            if (_charIdToEntity.TryGetValue(tp.CharId, out var entity))
+            {
+                _cmd.Set(entity, tp.Position);
+                _cmd.Set(entity, new MapId(tp.MapId));
+            }
+        }
+
+        // Aplica todas as mudanças agendadas no CommandBuffer (na thread principal)
         _cmd.Playback(World, dispose: true);
     }
 
     public void HandleSnapshot(in EnterSnapshot snapshot)
     {
-        _logger.LogInformation("Processando EnterSnapshot para CharId {CharId} no MapId {MapId}", 
-            snapshot.charId, snapshot.mapId);
-        
-        // Cria entidades para todos os personagens no mapa
-        foreach (var template in snapshot.templates)
-        {
-            CreateCharacterEntity(template);
-        }
+        _enterQueue.Enqueue(snapshot);
     }
 
     public void HandleSnapshot(in CharSnapshot snapshot)
     {
-        _logger.LogTrace("Processando CharSnapshot para CharId {CharId}", snapshot.CharId);
-        CreateCharacterEntity(snapshot.Template);
+        _charQueue.Enqueue(snapshot);
     }
 
     public void HandleSnapshot(in ExitSnapshot snapshot)
     {
-        _logger.LogInformation("Processando ExitSnapshot para CharId {CharId}", snapshot.CharId);
-        
-        if (_charIdToEntity.TryGetValue(snapshot.CharId, out var entity))
-        {
-            _cmd.Destroy(entity);
-            _charIdToEntity.Remove(snapshot.CharId);
-        }
+        _exitQueue.Enqueue(snapshot);
     }
 
     public void HandleSnapshot(in MoveSnapshot snapshot)
     {
-        _logger.LogTrace("Processando MoveSnapshot para CharId {CharId}: {OldPos} -> {NewPos}", 
-            snapshot.CharId, $"({snapshot.OldPosition.X},{snapshot.OldPosition.Y})", 
-            $"({snapshot.NewPosition.X},{snapshot.NewPosition.Y})");
-        
-        if (_charIdToEntity.TryGetValue(snapshot.CharId, out var entity))
-        {
-            _cmd.Set(entity, snapshot.NewPosition);
-        }
+        _moveQueue.Enqueue(snapshot);
     }
 
     public void HandleSnapshot(in AttackSnapshot snapshot)
     {
-        _logger.LogInformation("Processando AttackSnapshot para CharId {CharId}", snapshot.CharId);
-        
-        // Por enquanto, apenas logamos. Podemos adicionar componentes visuais posteriormente.
-        if (_charIdToEntity.ContainsKey(snapshot.CharId))
-        {
-            _logger.LogInformation("Personagem {CharId} executou um ataque", snapshot.CharId);
-        }
+        _attackQueue.Enqueue(snapshot);
     }
 
     public void HandleSnapshot(in TeleportSnapshot snapshot)
     {
-        _logger.LogInformation("Processando TeleportSnapshot para CharId {CharId} para ({X},{Y}) no MapId {MapId}", 
-            snapshot.CharId, snapshot.Position.X, snapshot.Position.Y, snapshot.MapId);
-        
-        if (_charIdToEntity.TryGetValue(snapshot.CharId, out var entity))
-        {
-            _cmd.Set(entity, snapshot.Position);
-            _cmd.Set(entity, new MapId(snapshot.MapId));
-        }
+        _teleportQueue.Enqueue(snapshot);
     }
 
     private void CreateCharacterEntity(CharTemplate template)

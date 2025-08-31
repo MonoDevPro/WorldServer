@@ -38,13 +38,10 @@ public class LiteNetPublisher(LiteNetServer server, ILogger<LiteNetPublisher> lo
         
         // Envia para todos, EXCETO para o próprio personagem do snapshot (ele já sabe de si mesmo)
         if (server.TryGetPeer(snapshot.CharId, out var excludePeer))
-        {
             server.Manager.SendToAll(_writer, DeliveryMethod.ReliableOrdered, excludePeer);
-        }
         else
-        {
             server.Manager.SendToAll(_writer, DeliveryMethod.ReliableOrdered);
-        }
+        
         logger.LogInformation("Snapshot de personagem {CharId} transmitido para outros jogadores.", snapshot.CharId);
     }
 
