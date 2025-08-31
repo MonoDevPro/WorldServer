@@ -5,6 +5,7 @@ using Arch.System.SourceGenerator;
 using Microsoft.Extensions.Logging;
 using Simulation.Core.Abstractions.Adapters;
 using Simulation.Core.Abstractions.Commons;
+using Simulation.Core.Abstractions.Ports.Char;
 using Simulation.Core.Abstractions.Ports.Index;
 using Simulation.Core.Abstractions.Ports.Map;
 

@@ -1,7 +1,7 @@
-using Simulation.Core.Abstractions.Adapters.Char;
+using Simulation.Core.Abstractions.Ports.Char;
 using Simulation.Core.Abstractions.Ports.Index;
 
-namespace Simulation.Core.Abstractions.Adapters.Index;
+namespace Simulation.Core.Abstractions.Adapters.Char;
 
 /// <summary>
 /// Implementação em memória do ICharTemplateRepository.
@@ -16,8 +16,8 @@ public class InMemoryCharTemplateRepository : ICharTemplateRepository
     {
         // Pré-carrega alguns personagens para teste. Em um cenário real,
         // isso viria de um arquivo de configuração ou de uma consulta ao banco de dados.
-        _templates[1] = new CharTemplate { CharId = 123, Name = "Filipe", MoveSpeed = 1.0f, AttackCastTime = 1.0f, AttackCooldown = 1.0f };
-        _templates[1] = new CharTemplate { CharId = 123, Name = "Rodorfo", MoveSpeed = 1.0f, AttackCastTime = 1.0f, AttackCooldown = 1.0f };
+        _templates[123] = new CharTemplate { CharId = 123, Name = "Filipe", MoveSpeed = 1.0f, AttackCastTime = 1.0f, AttackCooldown = 1.0f };
+        _templates[456] = new CharTemplate { CharId = 456, Name = "Rodorfo", MoveSpeed = 1.0f, AttackCastTime = 1.0f, AttackCooldown = 1.0f };
     }
 
     public CharTemplate GetTemplate(int charId)

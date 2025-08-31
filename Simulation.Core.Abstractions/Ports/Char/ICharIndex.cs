@@ -1,6 +1,6 @@
-using Simulation.Core.Abstractions.Adapters.Char;
+using Simulation.Core.Abstractions.Ports.Index;
 
-namespace Simulation.Core.Abstractions.Ports.Index;
+namespace Simulation.Core.Abstractions.Ports.Char;
 
 /// <summary>
 /// Define um serviço para mapear CharIds (int) para Entidades vivas na simulação.

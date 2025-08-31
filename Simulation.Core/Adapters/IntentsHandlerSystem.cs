@@ -5,9 +5,9 @@ using Arch.System;
 using Microsoft.Extensions.Logging;
 using Simulation.Core.Abstractions.Adapters;
 using Simulation.Core.Abstractions.Adapters.Char;
-using Simulation.Core.Abstractions.Adapters.Index;
 using Simulation.Core.Abstractions.Commons;
 using Simulation.Core.Abstractions.Ports;
+using Simulation.Core.Abstractions.Ports.Char;
 using Simulation.Core.Abstractions.Ports.Index;
 
 namespace Simulation.Core.Adapters;

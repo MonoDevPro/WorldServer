@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Simulation.Core.Abstractions.Adapters;
 using Simulation.Core.Abstractions.Ports;
+using Simulation.Core.Abstractions.Ports.Char;
 using Simulation.Core.Abstractions.Ports.Index;
 
 namespace Simulation.Network;
@@ -19,7 +20,6 @@ public class LiteNetServer : INetEventListener
 {
     private readonly NetManager _server;
     private readonly IIntentHandler _intentHandler;
-    private readonly ICharIndex _charIndex; // Para mapear NetPeer -> CharId -> Entity
     private readonly NetPacketProcessor _packetProcessor;
     private readonly ILogger<LiteNetServer> _logger;
     private readonly NetworkOptions _options;
@@ -31,13 +31,11 @@ public class LiteNetServer : INetEventListener
 
     public LiteNetServer(
         IIntentHandler intentHandler, 
-        ICharIndex charIndex,
         NetPacketProcessor packetProcessor,
         IOptions<NetworkOptions> options,
         ILogger<LiteNetServer> logger)
     {
         _intentHandler = intentHandler;
-        _charIndex = charIndex;
         _packetProcessor = packetProcessor;
         _logger = logger;
         _options = options.Value;
@@ -93,7 +91,7 @@ public class LiteNetServer : INetEventListener
         _packetProcessor.SubscribeNetSerializable<TeleportIntent, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, () => _intentHandler.HandleIntent(intent)));
     }
     
-    private void HandleAuthenticatedIntent<T>(T intent, NetPeer peer, Delegate process) where T: struct
+    private void HandleAuthenticatedIntent<T>(T intent, NetPeer peer, Delegate process) where T : struct
     {
         if (!_peerToCharId.ContainsKey(peer))
         {

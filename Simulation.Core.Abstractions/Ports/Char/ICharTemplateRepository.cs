@@ -1,6 +1,6 @@
 using Simulation.Core.Abstractions.Adapters.Char;
 
-namespace Simulation.Core.Abstractions.Ports.Index;
+namespace Simulation.Core.Abstractions.Ports.Char;
 
 /// <summary>
 /// Define um serviço para acessar os dados base (persistidos) dos personagens.
