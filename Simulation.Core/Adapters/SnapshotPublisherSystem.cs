@@ -1,6 +1,7 @@
 using Arch.Bus;
 using Arch.Core;
 using Arch.System;
+using Microsoft.Extensions.Logging;
 using Simulation.Core.Abstractions.Adapters;
 using Simulation.Core.Abstractions.Ports;
 
@@ -8,31 +9,32 @@ namespace Simulation.Core.Adapters;
 
 public partial class SnapshotPublisherSystem : BaseSystem<World, float>, ISnapshotPublisher
 {
-    public event Action<EnterSnapshot> OnEnterGameSnapshot = delegate { };
-    public event Action<ExitSnapshot> OnCharExitSnapshot = delegate { };
-    public event Action<MoveSnapshot> OnMoveSnapshot = delegate { };
-    public event Action<AttackSnapshot> OnAttackSnapshot = delegate { };
-    
-    [Event(order: 0)]
-    public void RaiseEnterGameSnapshot(in EnterSnapshot snapshot)
-        => OnEnterGameSnapshot.Invoke(snapshot);
-    
-    [Event(order: 0)]
-    public void RaiseExitGameSnapshot(in ExitSnapshot snapshot)
-        => OnCharExitSnapshot.Invoke(snapshot);
+    private readonly ISnapshotPublisher _publisher;
+    private readonly ILogger<SnapshotPublisherSystem> _logger;
 
     [Event(order: 0)]
-    public void RaiseMoveSnapshot(in MoveSnapshot snapshot)
-        => OnMoveSnapshot.Invoke(snapshot);
+    public void Publish(in EnterSnapshot s) => _publisher.Publish(in s);
 
     [Event(order: 0)]
-    public void RaiseAttackSnapshot(in AttackSnapshot snapshot)
-        => OnAttackSnapshot.Invoke(snapshot);
+    public void Publish(in CharSnapshot snapshot) => _publisher.Publish(in snapshot);
 
-    
-    public SnapshotPublisherSystem(World world) : base(world)
+    [Event(order: 0)]
+    public void Publish(in ExitSnapshot s) => _publisher.Publish(in s);
+
+    [Event(order: 0)]
+    public void Publish(in MoveSnapshot s) => _publisher.Publish(in s);
+
+    [Event(order: 0)]
+    public void Publish(in AttackSnapshot s) => _publisher.Publish(in s);
+
+    [Event(order: 0)]
+    public void Publish(in TeleportSnapshot s) => _publisher.Publish(in s);
+
+    public SnapshotPublisherSystem(World world, ISnapshotPublisher publisher, ILogger<SnapshotPublisherSystem> logger) 
+        : base(world)
     {
-        // Initialize any necessary resources here if needed
+        _publisher = publisher;
+        _logger = logger;
         Hook();
     }
     public override void Dispose()

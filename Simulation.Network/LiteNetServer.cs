@@ -1,199 +1,132 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
-using Arch.Core;
-using Arch.System;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Simulation.Core.Abstractions.Adapters;
-using Simulation.Core.Abstractions.Adapters.Char;
-using Simulation.Core.Abstractions.Commons;
 using Simulation.Core.Abstractions.Ports;
+using Simulation.Core.Abstractions.Ports.Index;
 
 namespace Simulation.Network;
 
-public class NetworkSystem : BaseSystem<World, float>, INetEventListener
+/// <summary>
+/// Gerencia a instância do servidor LiteNetLib e seus eventos de baixo nível.
+/// Atua como a ponte principal entre a rede e o resto da aplicação.
+/// </summary>
+public class LiteNetServer : INetEventListener
 {
-    private NetManager? _server;
-    private readonly NetPacketProcessor _processor = new();
+    private readonly NetManager _server;
+    private readonly IIntentHandler _intentHandler;
+    private readonly ICharIndex _charIndex; // Para mapear NetPeer -> CharId -> Entity
+    private readonly NetPacketProcessor _packetProcessor;
+    private readonly ILogger<LiteNetServer> _logger;
     private readonly NetworkOptions _options;
     
-    private bool _started;
-    private readonly ILogger<NetworkSystem> _logger;
-    private readonly IIntentHandler _intentProducer;
-    private readonly ISnapshotPublisher _snapshotEvents;
-    
-    
-    public NetworkSystem(ILogger<NetworkSystem> logger,
-        IIntentHandler intentProducer,
-        ISnapshotPublisher snapshotEvents,
+    // Mapeamento para saber qual CharId está associado a qual NetPeer
+    private readonly ConcurrentDictionary<NetPeer, int> _peerToCharId = new();
+
+    public NetManager Manager => _server;
+
+    public LiteNetServer(
+        IIntentHandler intentHandler, 
+        ICharIndex charIndex,
+        NetPacketProcessor packetProcessor,
         IOptions<NetworkOptions> options,
-        World world) : base(world)
+        ILogger<LiteNetServer> logger)
     {
+        _intentHandler = intentHandler;
+        _charIndex = charIndex;
+        _packetProcessor = packetProcessor;
         _logger = logger;
-        _intentProducer = intentProducer;
-        _snapshotEvents = snapshotEvents;
         _options = options.Value;
-        
-        // --- REGISTRO DE HANDLERS USANDO INTERCEPTORES ---
-
-        // 1. EnterGame: Qualquer peer conectado pode enviar.
-        _processor.SubscribeNetSerializable<EnterGameIntent, NetPeer>((intent, peer) =>
-        {
-            if (peer.Tag is not null)
-            {
-                _logger.LogWarning("Peer {EndPoint} já autenticado. Ignorando novo EnterGameIntent.", peer.Address);
-                return;
-            }
-            
-            var charTemplate = new CharTemplate
-            {
-                Name = "Player" + intent.CharId,
-                Gender = Gender.Male,
-                Vocation = Vocation.Mage,
-                CharId = intent.CharId,
-                MapId = 1, // Default map
-                Position = new GameCoord(0, 0), // Default position
-                Direction = new GameDirection(0, 1), // Default direction south
-                MoveSpeed = 1.0f,
-                AttackCastTime = 1.0f,
-                AttackCooldown = 1.0f,
-            };
-            
-            intentProducer.EnqueueEnterGameIntent(intent, charTemplate);
-            peer.Tag = intent.CharId;
-            intentProducer.EnqueueEnterGameIntent(intent, charTemplate);
-            
-            _logger.LogInformation("Peer {EndPoint} autenticado com CharId: {CharId}", peer.Address, intent.CharId);
-        });
-
-        // 2. Ações em jogo: Apenas peers que já entraram no jogo (autenticados).
-        RegisterAuthenticatedIntent<MoveIntent>((intent) => _intentProducer.EnqueueMoveIntent(intent));
-        RegisterAuthenticatedIntent<AttackIntent>( (intent) => _intentProducer.EnqueueAttackIntent(intent));
-    }
-
-    public override void Update(in float delta)
-    {
-        if (!_started) return;
-        
-        _server?.PollEvents();
-    }
-
-    public bool Start()
-    {
-        if (_started)
-        {
-            _logger.LogDebug("LiteNetServer já iniciado (Start chamado novamente). Ignorando.");
-            return true;
-        }
         
         _server = new NetManager(this)
         {
-            UnsyncedEvents = false,
-            IPv6Enabled = false
+            EnableStatistics = true,
+            AllowPeerAddressChange = true
         };
-        
-        if (!_server.Start(_options.Port))
-        {
-            _logger.LogError("Falha ao iniciar o servidor LiteNetLib na porta {Port}", _options.Port);
-            _server = null;
-            return false;
-        }
 
-        _logger.LogInformation("Servidor LiteNetLib escutando na porta {Port}", _options.Port);
-        _started = true;
-        return true;
+        // Registra os handlers para os intents que vêm da rede
+        RegisterIntentHandlers();
     }
-    
-    public void Stop()
+
+    public void Start()
     {
-        if (!_started) return;
+        _server.Start(_options.Port);
+        _logger.LogInformation("Servidor LiteNetLib iniciado na porta {Port}", _options.Port);
+    }
+
+    public void PollEvents() => _server.PollEvents();
+    public void Stop() => _server.Stop();
+    
+    // Mapeia um CharId a uma conexão de peer
+    public void MapPeerToChar(NetPeer peer, int charId) => _peerToCharId[peer] = charId;
+    public bool TryGetPeer(int charId, out NetPeer? peer)
+    {
+        // Esta busca pode ser lenta se houver muitos jogadores.
+        // Para otimizar, mantenha um dicionário reverso CharId -> NetPeer.
+        var pair = _peerToCharId.FirstOrDefault(p => p.Value == charId);
+        if (pair.Key != null)
+        {
+            peer = pair.Key;
+            return true;
+        }
+        peer = null;
+        return false;
+    }
+
+    private void RegisterIntentHandlers()
+    {
+        _packetProcessor.SubscribeNetSerializable<EnterIntent, NetPeer>((intent, peer) =>
+        {
+            // O EnterIntent é especial: é ele quem estabelece a associação Peer <-> CharId.
+            _logger.LogInformation("Recebido EnterIntent para CharId {CharId} do peer {PeerEndPoint}", intent.CharId, peer.Address);
+            MapPeerToChar(peer, intent.CharId);
+            _intentHandler.HandleIntent(in intent);
+        });
         
-        _server?.Stop();
-        
-        _server = null;
-        _started = false;
+        // Para todos os outros intents, verificamos se o peer já está autenticado (tem um CharId)
+        _packetProcessor.SubscribeNetSerializable<MoveIntent, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, () => _intentHandler.HandleIntent(intent)));
+        _packetProcessor.SubscribeNetSerializable<AttackIntent, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, () => _intentHandler.HandleIntent(intent)));
+        _packetProcessor.SubscribeNetSerializable<TeleportIntent, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, () => _intentHandler.HandleIntent(intent)));
     }
     
-    public void OnPeerConnected(NetPeer peer) => _logger.LogInformation("Peer conectado: {EndPoint}", peer.Address);
+    private void HandleAuthenticatedIntent<T>(T intent, NetPeer peer, Delegate process) where T: struct
+    {
+        if (!_peerToCharId.ContainsKey(peer))
+        {
+            _logger.LogWarning("Intent {IntentType} recebido de um peer não autenticado {PeerEndPoint}. Ignorando.", typeof(T).Name, peer.Address);
+            return;
+        }
+        process.DynamicInvoke();
+    }
+
+    #region INetEventListener Implementation
+    
+    public void OnPeerConnected(NetPeer peer) => _logger.LogInformation("Peer conectado: {PeerEndPoint}", peer.Address);
 
     public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
     {
-        _logger.LogInformation("Peer desconectado: {EndPoint} Motivo: {Reason}", peer.Address, disconnectInfo.Reason);
-        
-        if (!_peersByCharId.ContainsValue(peer)) return;
+        _logger.LogInformation("Peer desconectado: {PeerEndPoint}. Motivo: {Reason}", peer.Address, disconnectInfo.Reason);
+        if (_peerToCharId.TryRemove(peer, out var charId))
         {
-            _logger.LogInformation("Enfileirando ExitGameIntent para o CharId: {CharId}", charId);
-            _intentProducer.EnqueueExitGameIntent(new ExitGameIntent(charId));
-            peer.Tag = null;
+            // Notifica o ECS que este personagem saiu do jogo
+            _intentHandler.HandleIntent(new ExitIntent(charId));
         }
     }
-
-    public void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
-        => _logger.LogWarning("Erro de rede {Error} de {EndPoint}", socketError, endPoint);
-    
-    public void OnConnectionRequest(ConnectionRequest request) => request.AcceptIfKey(_options.ConnectionKey);
 
     public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
-        try
-        {
-            _processor.ReadAllPackets(reader, peer);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erro ao processar mensagem de rede");
-        }
-        finally
-        {
-            reader.Recycle();
-        }
+        _packetProcessor.ReadAllPackets(reader, peer);
+        reader.Recycle();
     }
     
-    /// <summary>
-    /// Interceptador genérico que valida se um peer está autenticado (em jogo)
-    /// antes de processar o comando.
-    /// </summary>
-    private void RegisterAuthenticatedIntent<T>(Action<T> onReceive) where T : INetSerializable, new()
-    {
-        _processor.SubscribeNetSerializable<T, NetPeer>((intent, peer) =>
-        {
-            if (peer.Tag is null)
-            {
-                _logger.LogWarning("Peer {EndPoint} não autenticado. Ignorando {IntentType}.", peer.Address, typeof(T).Name);
-                return;
-            }
-            
-            onReceive(intent);
-        });
-    }
+    public void OnConnectionRequest(ConnectionRequest request) => request.AcceptIfKey(_options.ConnectionKey);
+    public void OnNetworkError(IPEndPoint endPoint, SocketError socketError) => _logger.LogError("Erro de rede de {EndPoint}: {Error}", endPoint, socketError);
+    public void OnNetworkLatencyUpdate(NetPeer peer, int latency) { /* Opcional: registrar latência */ }
+    public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType) { }
     
-    private void SendGameSnapshot(EnterSnapshot snapshot)
-    {
-        
-        
-    }
-    
-    private void SendCharCharExitSnapshot(ExitSnapshot snapshot)
-    {
-        
-    }
-
-    private void SendMoveSnapshot(MoveSnapshot snapshot)
-    {
-        
-    }
-    
-    private void SendAttackSnapshot(AttackSnapshot snapshot)
-    {
-        
-    }
-
-    public void OnNetworkLatencyUpdate(NetPeer peer, int latency) { }
-    public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType) => reader.Recycle();
-    public NetPeer? GetPeerByCharId(int charId)
-    {
-        return _peersByCharId.GetValueOrDefault(charId);
-    }
+    #endregion
 }

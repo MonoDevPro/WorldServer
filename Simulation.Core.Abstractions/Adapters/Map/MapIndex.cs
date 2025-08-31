@@ -1,8 +1,7 @@
-using Simulation.Core.Abstractions.Adapters.Data;
-using Simulation.Core.Abstractions.Commons;
-using Simulation.Core.Abstractions.Ports;
+using Simulation.Core.Abstractions.Ports.Index;
+using Simulation.Core.Abstractions.Ports.Map;
 
-namespace Simulation.Core.Utilities;
+namespace Simulation.Core.Abstractions.Adapters.Map;
 
 public sealed class MapIndex : IMapIndex
 {

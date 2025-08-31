@@ -12,7 +12,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Client", "Simula
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Core.Abstractions", "Simulation.Core.Abstractions\Simulation.Core.Abstractions.csproj", "{C8801063-4306-4B10-A83B-0CCC3F3CB10B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Core.Benchmarks", "Simulation.Core.Benchmarks\Simulation.Core.Benchmarks.csproj", "{79CD472C-8DEA-47FD-8A3B-080E0DD492A1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuadTrees", "QuadTrees\QuadTrees\QuadTrees.csproj", "{B8727F00-3F15-4960-BC96-F4349729EC20}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -44,9 +44,9 @@ Global
 		{C8801063-4306-4B10-A83B-0CCC3F3CB10B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C8801063-4306-4B10-A83B-0CCC3F3CB10B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C8801063-4306-4B10-A83B-0CCC3F3CB10B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{79CD472C-8DEA-47FD-8A3B-080E0DD492A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{79CD472C-8DEA-47FD-8A3B-080E0DD492A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{79CD472C-8DEA-47FD-8A3B-080E0DD492A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{79CD472C-8DEA-47FD-8A3B-080E0DD492A1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B8727F00-3F15-4960-BC96-F4349729EC20}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8727F00-3F15-4960-BC96-F4349729EC20}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8727F00-3F15-4960-BC96-F4349729EC20}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8727F00-3F15-4960-BC96-F4349729EC20}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -1,174 +1,139 @@
 using System.Diagnostics;
-using Arch.Core;
 using Microsoft.Extensions.Logging;
 using Simulation.Core;
-using Simulation.Core.Abstractions.Commons;
+using Simulation.Core.Abstractions.Ports.Map;
 using Simulation.Network;
 
 namespace Simulation.Console;
 
-public class SimulationLoop(
-    ILogger<SimulationLoop> logger,
-    SimulationRunner runner,
-    MapLoaderService mapLoaderService,
-    NetworkSystem network,
-    World world)
-    : IAsyncDisposable
+/// <summary>
+/// Orquestra o ciclo de vida do servidor, incluindo inicialização, o loop principal do jogo e o desligamento.
+/// </summary>
+public class SimulationLoop : IAsyncDisposable
 {
-    // 60 ticks por segundo (16.666...ms)
-    private const double TickSeconds = 1.0 / 60.0;
+    private const double TickSeconds = 1.0 / 60.0; // 60 ticks por segundo
     private readonly Stopwatch _mainTimer = new();
+    
+    private readonly ILogger<SimulationLoop> _logger;
+    private readonly SimulationRunner _simulationRunner;
+    private readonly LiteNetServer _networkServer;
+    private readonly IMapLoaderService _mapLoaderService;
 
-    // configuração de sleep (tuning)
-    private const int MinDelayMsForTaskDelay = 2; // se >= 2ms, usamos Task.Delay; se < 2ms, usamos Task.Yield
+    public SimulationLoop(
+        ILogger<SimulationLoop> logger,
+        SimulationRunner simulationRunner,
+        IMapLoaderService mapLoaderService,
+        LiteNetServer networkServer)
+    {
+        _logger = logger;
+        _simulationRunner = simulationRunner;
+        _mapLoaderService = mapLoaderService;
+        _networkServer = networkServer;
+    }
 
     /// <summary>
-    /// Start the simulation loop. Observes cancellationToken to stop.
+    /// Prepara o servidor para execução, carregando recursos essenciais.
     /// </summary>
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public async Task InitializeAsync(CancellationToken cancellationToken)
     {
-        // Loading map and starting network before entering main loop
-        logger.LogInformation("Loading initial map...");
+        _logger.LogInformation("Inicializando o servidor...");
         try
         {
-            // Load initial map (map 1 as seed)
-            if (!await mapLoaderService.LoadMapAsync(1, cancellationToken))
-            {
-                logger.LogCritical("Failed to load initial map (ID 1). Aborting startup.");
-                throw new InvalidOperationException("Failed to load initial map (ID 1)");
-            }
+            // Carrega o mapa inicial (ex: mapa 1) antes de aceitar conexões.
+            // O MapLoaderService enfileira o trabalho, que será processado no primeiro tick pelo MapLoaderSystem.
+            await _mapLoaderService.LoadMapAsync(1, cancellationToken);
+            _logger.LogInformation("Mapa inicial (ID 1) enfileirado para carregamento.");
+            
+            // Inicia a camada de rede
+            _networkServer.Start();
         }
         catch (Exception ex)
         {
-            logger.LogCritical(ex, "Exception while loading initial map (ID 1). Aborting startup.");
+            _logger.LogCritical(ex, "Falha crítica durante a inicialização do servidor.");
             throw;
         }
-        
-        logger.LogInformation("Simulation starting");
-        // Start stopwatch before any timing calculations
+    }
+
+    /// <summary>
+    /// Executa o loop principal da simulação.
+    /// </summary>
+    public async Task RunAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Entrando no loop principal da simulação...");
         _mainTimer.Start();
+        
         double accumulator = 0;
-        var last = _mainTimer.Elapsed.TotalSeconds;
+        double lastTime = _mainTimer.Elapsed.TotalSeconds;
 
-        // Enfileira comando para carregar mapa 1 (seed)
-        world.Create(new MapLoadRequest { MapId = 1 });
-        logger.LogInformation("Comando para carregar mapa 1 enfileirado.");
-
-        // Inicia a network (sincronamente aqui) — se preferir, exponha StartAsync com timeout.
-        try
+        while (!cancellationToken.IsCancellationRequested)
         {
-            // Se a sua network.Start pode bloquear por muito tempo, considere rodar em Task.Run com timeout.
-            if (!network.Start())
+            var currentTime = _mainTimer.Elapsed.TotalSeconds;
+            var deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            // Limita o deltaTime para evitar a "espiral da morte" se houver um pico de lag.
+            if (deltaTime > 0.25)
             {
-                logger.LogCritical("Falha ao iniciar network. Abortando startup do Worker.");
-                throw new InvalidOperationException("Falha ao iniciar network");
+                deltaTime = 0.25;
             }
-        }
-        catch (Exception ex)
-        {
-            logger.LogCritical(ex, "Exceção ao iniciar o network no StartAsync.");
-            throw;
-        }
 
-        try
-        {
-            logger.LogInformation("Entering main loop.");
-            while (!cancellationToken.IsCancellationRequested)
+            accumulator += deltaTime;
+
+            // --- Etapa 1: Processamento de Rede ---
+            _networkServer.PollEvents(); // Processa todos os pacotes de rede recebidos.
+
+            // --- Etapa 2: Simulação com Timestep Fixo ---
+            while (accumulator >= TickSeconds)
             {
-                var now = _mainTimer.Elapsed.TotalSeconds;
-                var frame = now - last;
-                last = now;
-
-                // cap to avoid pathological large frame deltas
-                if (frame > 1.0) frame = 1.0;
-
-                accumulator += frame;
-
-                // Fixed-step updates
-                while (accumulator >= TickSeconds && !cancellationToken.IsCancellationRequested)
+                try
                 {
-                    try
-                    {
-                        runner.Update((float)TickSeconds);
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        // Shut down requested - break loop
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Erro no SimulationRunner.Update()");
-                        // continue — não queremos matar o loop apenas por uma exceção
-                    }
-
-                    accumulator -= TickSeconds;
+                    _simulationRunner.Update((float)TickSeconds);
                 }
-
-                // --- sleeping strategy ---
-                var remaining = TickSeconds - accumulator;
-                if (remaining <= 0)
+                catch (Exception ex)
                 {
-                    // we're behind or exactly at tick boundary - yield to avoid busy spin
-                    await Task.Yield();
-                    continue;
+                    _logger.LogError(ex, "Erro durante o update do SimulationRunner.");
                 }
-
-                var remainingMs = remaining * 1000.0;
-                if (remainingMs >= MinDelayMsForTaskDelay)
-                {
-                    // Subtraimos 1ms de margem para aumentar chance de acertar o tick depois do delay
-                    var delay = Math.Max(1, (int)remainingMs - 1);
-                    try
-                    {
-                        await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
-                    }
-                    catch (TaskCanceledException) { /* shutdown */ }
-                }
-                else
-                {
-                    // Very short remaining time: use yield (or SpinWait if you need sub-ms precision)
-                    await Task.Yield();
-                }
+                accumulator -= TickSeconds;
             }
+
+            // --- Etapa 3: Estratégia de Espera (Sleep) ---
+            await SleepUntilNextTick(accumulator, cancellationToken);
         }
-        finally
+    }
+
+    private async Task SleepUntilNextTick(double accumulator, CancellationToken cancellationToken)
+    {
+        var remainingTime = TickSeconds - accumulator;
+        if (remainingTime <= 0)
         {
-            logger.LogInformation("Simulation loop ending; stopping network...");
+            await Task.Yield(); // Estamos atrasados, cede o controle do thread brevemente.
+            return;
+        }
+
+        var delayMilliseconds = (int)(remainingTime * 1000);
+        if (delayMilliseconds > 1)
+        {
             try
             {
-                network.Stop();
+                await Task.Delay(delayMilliseconds - 1, cancellationToken);
             }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Erro ao parar Network ao finalizar Worker");
-            }
+            catch (TaskCanceledException) { /* Ignora, o cancelamento será tratado no loop principal. */ }
+        }
+        else
+        {
+            await Task.Yield(); // Para esperas muito curtas, Task.Yield é mais apropriado.
         }
     }
 
     public async ValueTask DisposeAsync()
     {
-        // Safe dispose of runner, network, world (if non-null and disposable)
-        await SafeDisposeAsync(runner).ConfigureAwait(false);
-        await SafeDisposeAsync(network).ConfigureAwait(false);
-        await SafeDisposeAsync(world).ConfigureAwait(false);
-    }
-
-    private static async ValueTask SafeDisposeAsync(object? resource)
-    {
-        if (resource == null) return;
-
-        if (resource is IAsyncDisposable asyncDisposable)
+        _logger.LogInformation("Finalizando o servidor...");
+        _networkServer.Stop();
+        
+        // Exemplo de como descartar outros recursos, se necessário
+        if (_simulationRunner is IAsyncDisposable asyncDisposable)
         {
-            try { await asyncDisposable.DisposeAsync().ConfigureAwait(false); }
-            catch { /* swallow or rethrow depending on policy */ }
-            return;
-        }
-
-        if (resource is IDisposable disposable)
-        {
-            try { disposable.Dispose(); }
-            catch { /* swallow or rethrow depending on policy */ }
+            await asyncDisposable.DisposeAsync();
         }
     }
 }

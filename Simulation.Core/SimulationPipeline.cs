@@ -6,51 +6,38 @@ using Simulation.Core.Systems;
 
 namespace Simulation.Core;
 
+/// <summary>
+/// Define a ordem de execução de todos os sistemas da simulação a cada tick.
+/// A ordem é crítica para garantir um fluxo de dados previsível e estável.
+/// </summary>
 public class SimulationPipeline : List<BaseSystem<World, float>>
 {
-    private readonly IServiceProvider _provider;
-
     public SimulationPipeline(IServiceProvider provider)
     {
-        _provider = provider;
-
-        Configure();
+        Configure(provider);
     }
 
-    private void Configure()
+    private void Configure(IServiceProvider provider)
     {
-        // --- In ---
-        // 0. Adiciona sistemas que aceitam dados externos (network, admin...) e enfileiram intents / map loads.
-        Add(_provider.GetRequiredService<MapLoaderSystem>());
+        // --- GRUPO 1: ENTRADA E PREPARAÇÃO ---
+        // Sistemas que recebem dados do "mundo externo" (rede, arquivos) e os preparam para o ECS.
+        Add(provider.GetRequiredService<IntentsHandlerSystem>()); // Enfileira intents da rede. Roda primeiro para pegar o input mais recente.
+        Add(provider.GetRequiredService<MapLoaderSystem>());      // Processa mapas carregados e os adiciona ao World.
         
-        // Recebe enter/exit intents (translates external sessions into intent-entities)
-        Add(_provider.GetRequiredService<PlayerLifecycleSystem>());
+        // --- GRUPO 2: LÓGICA DE CICLO DE VIDA E AÇÕES ---
+        // Sistemas que reagem a intents e iniciam ações no mundo.
+        Add(provider.GetRequiredService<PlayerLifecycleSystem>()); // Processa Enter/Exit intents para criar/destruir entidades de jogador.
+        Add(provider.GetRequiredService<GridMovementSystem>());    // Inicia e processa ações de movimento.
+        Add(provider.GetRequiredService<TeleportSystem>());        // Processa ações de teleporte.
+        Add(provider.GetRequiredService<AttackSystem>());          // Inicia e processa ações de ataque.
+        Add(provider.GetRequiredService<LifetimeSystem>());        // Processa o tempo de vida de entidades temporárias (ex: projéteis, efeitos).
+
+        // --- GRUPO 3: SINCRONIZAÇÃO E FINALIZAÇÃO ---
+        // Sistemas que rodam no final do tick para garantir que os dados estejam consistentes.
+        Add(provider.GetRequiredService<SpatialIndexSyncSystem>()); // Sincroniza o índice espacial com as posições atualizadas. ESSENCIAL rodar depois de todos os sistemas de movimento.
         
-        // System that reads network packets and enqueues intents into a safe queue (if you have one)
-        Add(_provider.GetRequiredService<IntentEnqueueSystem>());
-        
-        // --- Processamento de Comandos ---
-        // 2. Processa commands que foram enfileirados -> aplica intents, cria/destroi entidades
-        Add(_provider.GetRequiredService<IntentsDequeueSystem>());
-        
-        // --- Lógica Principal da Simulação ---
-        // Spawn/Despawn: colocar antes do movimento se você quer que spawns participem do mesmo tick.
-        Add(_provider.GetRequiredService<PlayerSpawnSystem>());
-        Add(_provider.GetRequiredService<PlayerDespawnSystem>());
-        Add(_provider.GetRequiredService<LifetimeSystem>());
-        
-        // --- Lógica Principal da Simulação ---
-        Add(_provider.GetRequiredService<GridMovementSystem>());
-        Add(_provider.GetRequiredService<TeleportSystem>());
-        Add(_provider.GetRequiredService<AttackSystem>());
-        
-        // --- Finalização do Ciclo ---
-        // Aplica as mudanças de posição no índice espacial.
-        Add(_provider.GetRequiredService<SpatialIndexCommitSystem>());
-        
-        // --- Out ---
-        // Gera os "snapshots" ou eventos de saída para o mundo externo.
-        Add(_provider.GetRequiredService<SnapshotPostSystem>());
-        Add(_provider.GetRequiredService<SnapshotPublisherSystem>());
+        // --- GRUPO 4: SAÍDA ---
+        // Sistemas que publicam os resultados do tick para o "mundo externo".
+        Add(provider.GetRequiredService<SnapshotPublisherSystem>()); // Coleta eventos do EventBus e os envia para a camada de rede.
     }
 }

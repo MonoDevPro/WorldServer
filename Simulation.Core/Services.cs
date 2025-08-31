@@ -1,57 +1,75 @@
 using Arch.Core;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Simulation.Core.Abstractions.Adapters;
+using Simulation.Core.Abstractions.Adapters.Char;
+using Simulation.Core.Abstractions.Adapters.Index;
+using Simulation.Core.Abstractions.Adapters.Map;
+using Simulation.Core.Abstractions.Adapters.Spatial;
 using Simulation.Core.Abstractions.Ports;
+using Simulation.Core.Abstractions.Ports.Index;
+using Simulation.Core.Abstractions.Ports.Map;
 using Simulation.Core.Adapters;
 using Simulation.Core.Systems;
-using Simulation.Core.Utilities;
-using Simulation.Core.Utilities.Factories;
-using PlayerLifecycleSystem = Simulation.Core.Adapters.PlayerLifecycleSystem;
 
 namespace Simulation.Core;
 
 public static class Services
 {
-    public static IServiceCollection AddSimulationCore(this IServiceCollection services)
+    public static IServiceCollection AddSimulationCore(this IServiceCollection services, IConfiguration configuration)
     {
-        // World and indices
+        // 1. Regista o WorldOptions e o associa à secção "World" do appsettings.json
+        services.AddOptions<WorldOptions>()
+            .Bind(configuration.GetSection(WorldOptions.SectionName));
+        
+        // --- Núcleo do ECS ---
+        // Registra o World como um singleton. Cada sistema receberá a mesma instância.
         services.AddSingleton<World>(provider => WorldFactory.Create());
-        services.AddSingleton<ICharIndex, CharIndex>();
-        services.AddSingleton<ISpatialIndex, SpatialIndex>();
-        services.AddSingleton<IEntityIndex, EntityIndex>();
-        services.AddSingleton<IMapIndex, MapIndex>();
 
-        // Systems
-        services.AddSingleton<MapLoaderSystem>(); // BaseSystem — registre e chame Update no loop
+        // --- Registros de Índices e Repositórios (Ports & Adapters) ---
+        // Para cada interface (Port), registramos uma implementação concreta (Adapter).
+        
+        // Índice de Personagens (CharId -> Entity)
+        services.AddSingleton<ICharIndex, CharIndex>();
+        
+        // Índice de Mapas (MapId -> MapData)
+        services.AddSingleton<IMapIndex, MapIndex>();
+        
+        // Índice Espacial (usando a implementação com QuadTree)
+        services.AddSingleton<ISpatialIndex, QuadTreeIndex>();
+        
+        // Repositório de Templates (simulando acesso a dados)
+        services.AddSingleton<ICharTemplateRepository, InMemoryCharTemplateRepository>();
+
+        // --- Sistemas da Simulação ---
+        // A ordem de registro como singleton não importa, mas a ordem de execução no pipeline sim.
+
+        // Sistemas de Entrada/Saída
+        services.AddSingleton<IntentsHandlerSystem>();
+        services.AddSingleton<IIntentHandler>(sp => sp.GetRequiredService<IntentsHandlerSystem>());
+        
+        services.AddSingleton<MapLoaderSystem>();
         services.AddSingleton<IMapLoaderSystem>(sp => sp.GetRequiredService<MapLoaderSystem>());
         
-        // Registering the lifecycle service -> Update and manage entity lifetimes
-        services.AddSingleton<PlayerLifecycleSystem>(); // BaseSystem — registre e chame Update no loop
-        services.AddSingleton<PlayerSpawnSystem>(); // BaseSystem — registre e chame Update no loop
-        services.AddSingleton<PlayerDespawnSystem>(); // BaseSystem — registre e chame Update no loop
-        services.AddSingleton<ILifecycleSystem, PlayerLifecycleSystem>(provider => provider.GetRequiredService<PlayerLifecycleSystem>());
-        
-        // Registering the intent producer service -> Exit from ecs world
-        services.AddSingleton<IntentEnqueueSystem>(); // BaseSystem — registre e chame Update no loop
-        services.AddSingleton<IIntentHandler, IntentEnqueueSystem>(provider => provider.GetRequiredService<IntentEnqueueSystem>());
-        
-        // Registering the snapshot events service -> 
-        services.AddSingleton<SnapshotPublisherSystem>(); // BaseSystem — registre e chame Update no loop
-        services.AddSingleton<ISnapshotPublisher>(provider => provider.GetRequiredService<SnapshotPublisherSystem>());
-        
-        services.AddSingleton<IntentsDequeueSystem>();
-        services.AddSingleton<LifetimeSystem>();
+        services.AddSingleton<SnapshotPublisherSystem>();
+
+        // Sistemas de Lógica de Jogo
+        services.AddSingleton<PlayerLifecycleSystem>();
+        services.AddSingleton<LifetimeSystem>(); // Para entidades temporárias
         services.AddSingleton<GridMovementSystem>();
         services.AddSingleton<TeleportSystem>();
-        services.AddSingleton<SpatialIndexCommitSystem>();
         services.AddSingleton<AttackSystem>();
-        services.AddSingleton<SnapshotPostSystem>();
         
-        // Pipeline
+        // Sistemas de Sincronização e Finalização
+        services.AddSingleton<SpatialIndexSyncSystem>();
+
+        // --- Pipeline e Runner ---
+        // O SimulationPipeline irá injetar todos os sistemas registrados acima na ordem correta.
         services.AddSingleton<SimulationPipeline>();
-        
-        // Simulation runner
         services.AddSingleton<SimulationRunner>();
 
         return services;
     }
 }
+

@@ -4,20 +4,24 @@ namespace Simulation.Core.Abstractions.Commons;
 
 public static class Extensions
 {
-    # region GameCoord Extensions
+    # region Position Extensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static GameCoord Sign(this GameCoord v) => new(Math.Sign(v.X), Math.Sign(v.Y));
+    public static Position Sign(this Position v) { v.X = Math.Sign(v.X); v.Y = Math.Sign(v.Y); return v; }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static GameCoord Sum(this GameCoord v1, GameCoord v2) => new(v1.X + v2.X, v1.Y + v2.Y);
+    public static Position Sum(this Position v1, Position v2) { v1.X += v2.X; v1.Y += v2.Y; return v1; }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static GameCoord Sub(this GameCoord v1, GameCoord v2) => new(v1.X - v2.X, v1.Y - v2.Y);
+    public static Position Sub(this Position v1, Position v2) { v1.X -= v2.X; v1.Y -= v2.Y; return v1; }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static GameCoord Mul(this GameCoord v, float scalar) => new((int)(v.X * scalar), (int)(v.Y * scalar));
+    public static Position Mul(this Position v, float scalar) { v.X = (int)(v.X * scalar); v.Y = (int)(v.Y * scalar); return v; }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static GameCoord Div(this GameCoord v, float scalar) => new((int)(v.X / scalar), (int)(v.Y / scalar));
+    public static Position Div(this Position v, float scalar) { v.X = (int)(v.X / scalar); v.Y = (int)(v.Y / scalar); return v; }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsZero(this GameCoord v) => v is { X: 0, Y: 0 };
+    public static bool IsZero(this Position v) => v is { X: 0, Y: 0 };
     #endregion
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsZero(this Direction v) => v is { X: 0, Y: 0 };
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsZero(this Input v) => v is { X: 0, Y: 0 };
     
 }

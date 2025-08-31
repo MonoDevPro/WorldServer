@@ -1,6 +1,5 @@
 ﻿
 
 using BenchmarkDotNet.Running;
-using Simulation.Core.Benchmarks;
 
-BenchmarkRunner.Run<MapAccessBenchmarks>();
+//BenchmarkRunner.Run<MapAccessBenchmarks>();

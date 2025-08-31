@@ -1,73 +1,73 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Simulation.Console;
 using Simulation.Core;
+using Simulation.Core.Abstractions.Adapters.Map;
+using Simulation.Core.Abstractions.Ports;
+using Simulation.Core.Abstractions.Ports.Map;
 using Simulation.Network;
 
-// --- Início da nova seção de configuração ---
-// 1) Construção da configuração
+// 1. Construção da Configuração
 var configuration = new ConfigurationBuilder()
-    .SetBasePath(AppContext.BaseDirectory) // Garante que ele encontre o JSON
+    .SetBasePath(AppContext.BaseDirectory)
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .Build();
-// --- Fim da nova seção de configuração ---
 
-// 2) Construção do container
+// 2. Construção do Container de Injeção de Dependência
 var services = new ServiceCollection();
-services.AddLogging(builder => builder.AddConsole());
+services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Trace));
 
-// --- Registra as opções de configuração ---
+// Registra as opções de configuração
 services.Configure<NetworkOptions>(configuration.GetSection(NetworkOptions.SectionName));
+services.Configure<WorldOptions>(configuration.GetSection(WorldOptions.SectionName));
 
-services.AddSimulationCore();
-services.AddSimulationNetwork();
+// Adiciona todos os serviços dos projetos Core e Network
+services.AddSimulationCore(configuration);
+services.AddSimulationNetwork(configuration);
+
+// Registra os serviços específicos da aplicação Console
+services.AddSingleton<IMapLoaderService, MapLoaderService>();
 services.AddSingleton<SimulationLoop>();
-services.AddSingleton<MapLoaderService>();
-services.Replace(ServiceDescriptor.Singleton<SimulationPipeline>(sp => new SystemPipelineAdapter(sp)));
 
+// Constrói o provedor de serviços
 await using var provider = services.BuildServiceProvider();
 
-// 2) resoluções
+// 3. Resolução dos Serviços Principais
 var loop = provider.GetRequiredService<SimulationLoop>();
-var logger = provider.GetRequiredService<ILogger<Program>>(); // ou ILogger<SimulationLoop>
+var logger = provider.GetRequiredService<ILogger<Program>>();
 
-// 3) CancellationTokenSource centralizado e handler registrado ANTES de iniciar o loop
+// 4. Configuração do Encerramento Graceful (Ctrl+C)
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (sender, eventArgs) =>
 {
-    // sinaliza que queremos terminar e evita que o processo finalize imediatamente
     eventArgs.Cancel = true;
-    logger.LogInformation("Ctrl+C recebido — sinalizando cancelamento...");
+    logger.LogInformation("Ctrl+C recebido. Sinalizando para o encerramento...");
     cts.Cancel();
 };
 
-// 4) Inicia o loop; StartAsync observa o token e retorna quando o loop terminar (ou token cancelado)
+// 5. Execução do Ciclo de Vida do Servidor
 try
 {
-    await loop.StartAsync(cts.Token).ConfigureAwait(false);
+    // Etapa 1: Inicializa o servidor (carrega mapas, inicia a rede, etc.)
+    await loop.InitializeAsync(cts.Token).ConfigureAwait(false);
+    
+    // Etapa 2: Executa o loop principal do jogo
+    await loop.RunAsync(cts.Token).ConfigureAwait(false);
 }
 catch (OperationCanceledException)
 {
-    logger.LogInformation("Loop cancelado.");
+    logger.LogInformation("Operação cancelada. O servidor será encerrado.");
 }
 catch (Exception ex)
 {
-    logger.LogCritical(ex, "Erro fatal durante a execução do loop.");
+    logger.LogCritical(ex, "Erro fatal não tratado que encerrou a aplicação.");
 }
 finally
 {
-    // 5) Cleanup e dispose ordenados (DisposeAsync do loop e do provider)
-    try
-    {
-        await loop.DisposeAsync().ConfigureAwait(false);
-    }
-    catch (Exception ex)
-    {
-        logger.LogWarning(ex, "Erro ao finalizar SimulationLoop.");
-    }
-
-    // provider será disposed automaticamente pelo await using acima
+    // Etapa 3: Garante o descarte de recursos de forma limpa
+    logger.LogInformation("Iniciando o processo de finalização...");
+    await loop.DisposeAsync().ConfigureAwait(false);
     logger.LogInformation("Servidor finalizado.");
 }
+

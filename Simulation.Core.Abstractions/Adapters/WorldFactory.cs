@@ -1,6 +1,6 @@
 using Arch.Core;
 
-namespace Simulation.Core.Utilities.Factories;
+namespace Simulation.Core.Abstractions.Adapters;
 
 public static class WorldFactory
 {

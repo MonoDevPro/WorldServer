@@ -1,10 +1,11 @@
-using System.Collections.Concurrent;
 using Arch.Core;
 using Arch.System;
 using Microsoft.Extensions.Logging;
 using Simulation.Core.Abstractions.Adapters.Map;
 using Simulation.Core.Abstractions.Commons;
 using Simulation.Core.Abstractions.Ports;
+using Simulation.Core.Abstractions.Ports.Index;
+using Simulation.Core.Abstractions.Ports.Map;
 
 namespace Simulation.Core.Adapters;
 
@@ -30,7 +31,6 @@ public sealed class MapLoaderSystem(World world, IMapIndex mapIndex, ILogger<Map
             logger.LogDebug("EnqueueMapFromData: mapa {MapId} já registrado no index — ignorando enqueue.", mapData.MapId);
             return;
         }
-
         _mapQueue.Enqueue(mapData);
     }
 
@@ -54,7 +54,7 @@ public sealed class MapLoaderSystem(World world, IMapIndex mapIndex, ILogger<Map
                 // Register map components into the World (single place that mutates World)
                 World.Create(
                     new MapId(mapData.MapId),
-                    new MapSize(new GameSize(mapData.Width, mapData.Height)),
+                    new MapSize(mapData.Width, mapData.Height),
                     new MapFlags(mapData.UsePadded)
                 );
 
@@ -78,7 +78,5 @@ public sealed class MapLoaderSystem(World world, IMapIndex mapIndex, ILogger<Map
         // se precisar, limpe a fila:
         while (_mapQueue.TryDequeue(out _)) { }
         base.Dispose();
-        
-        GC.SuppressFinalize(this);
     }
 }

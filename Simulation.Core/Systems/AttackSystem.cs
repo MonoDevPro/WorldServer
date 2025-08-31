@@ -1,27 +1,32 @@
+using Arch.Bus;
 using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
 using Microsoft.Extensions.Logging;
 using Simulation.Core.Abstractions.Adapters;
-using Simulation.Core.Abstractions.Commons; // Adicionado
-using Simulation.Core.Abstractions.Ports;
+using Simulation.Core.Abstractions.Commons;
+using Simulation.Core.Abstractions.Ports.Index;
 
 namespace Simulation.Core.Systems;
 
-public sealed partial class AttackSystem(
-    World world,
-    ISpatialIndex grid,
-    IEntityIndex entityIndex,
-    ILogger<AttackSystem> logger)
+/// <summary>
+/// Gerencia a lógica de ataques, desde a intenção até a aplicação de dano.
+/// </summary>
+public sealed partial class AttackSystem(World world, ISpatialIndex spatialIndex, ILogger<AttackSystem> logger)
     : BaseSystem<World, float>(world)
 {
+    // Usamos uma lista reutilizável para os resultados da query espacial para evitar alocações de memória.
+    private readonly List<Entity> _queryResults = new();
 
+    /// <summary>
+    /// Processa a intenção de atacar, iniciando a ação de ataque.
+    /// </summary>
     [Query]
-    [All<AttackIntent>]
-    [All<AttackStats>]
-    [None<AttackAction>]
-    private void ProcessAttackIntent(in Entity e, in AttackIntent cmd, in AttackStats stats)
+    [All<AttackIntent, AttackStats>]
+    [None<AttackAction>] // Garante que não iniciemos um novo ataque se um já estiver em andamento.
+    private void ProcessAttackIntent(in Entity entity, in AttackIntent cmd, in AttackStats stats)
     {
+        // 1. Cria a ação de ataque com base nos status do personagem.
         var attackAction = new AttackAction
         {
             Duration = stats.CastTime,
@@ -29,51 +34,67 @@ public sealed partial class AttackSystem(
             Cooldown = stats.Cooldown,
             CooldownRemaining = 0f
         };
+        World.Add(entity, attackAction);
+
+        // 2. Dispara um evento para a rede, notificando que o ataque começou.
         var attackSnapshot = new AttackSnapshot(cmd.AttackerCharId);
+        EventBus.Send(in attackSnapshot);
         
-        World.AddRange(e, new Span<object>([attackAction, attackSnapshot]));
-        World.Remove<AttackIntent>(e);
+        // 3. Remove o componente de intenção, pois já foi processado.
+        World.Remove<AttackIntent>(entity);
         
-        logger.LogInformation("Ataque iniciado pela entidade {EntityId} (CharId: {CharId})", e.Id, cmd.AttackerCharId);
+        logger.LogInformation("CharId {id} iniciou um ataque.", cmd.AttackerCharId);
     }
     
+    /// <summary>
+    /// Processa as ações de ataque em andamento.
+    /// </summary>
     [Query]
-    [All<AttackAction>]
-    [All<Position>]
-    [All<MapId>]
-    private void ProcessAttackAction([Data] in float dt, in Entity e, ref AttackAction a, in Position pos, in MapId map)
+    [All<MapId, AttackAction, Position, Direction>]
+    private void ProcessAttackAction([Data] in float dt, in Entity entity, ref AttackAction action, in Position pos, in Direction dir)
     {
-        if (a.Remaining > 0f)
+        // Se a ação está na fase de "cast time"
+        if (action.Remaining > 0f)
         {
-            a.Remaining -= dt;
-            if (a.Remaining <= 0f)
+            action.Remaining -= dt;
+            if (action.Remaining <= 0f)
             {
-                a.Remaining = 0f;
-                a.CooldownRemaining = a.Cooldown;
+                // O ataque "acerta" agora.
+                action.Remaining = 0f;
+                action.CooldownRemaining = action.Cooldown;
 
-                var range = 1; 
-                logger.LogInformation("Ataque da entidade {EntityId} finalizado em {Position}. Procurando alvos no alcance {Range}", e.Id, pos.Value, range);
+                // Define a área de efeito (ex: um quadrado 3x3 na frente do jogador)
+                var attackCenter = new Position { X = pos.X + dir.X, Y = pos.Y + dir.Y };
+                var attackRadius = 1; // Raio de 1 resulta em uma área 3x3
 
-                var attackerId = e.Id;
-                grid.QueryRadius(map.Value, pos.Value, range, targetEid =>
+                logger.LogDebug("Ataque de {entity} acertou em {pos}. Procurando alvos.", entity, attackCenter);
+
+                // Limpa a lista de resultados e consulta o índice espacial.
+                _queryResults.Clear();
+                spatialIndex.Query(attackCenter, attackRadius, _queryResults);
+
+                foreach (var targetEntity in _queryResults)
                 {
-                    if (targetEid == attackerId) return;
+                    // Não acerta a si mesmo.
+                    if (targetEntity == entity) continue;
 
-                    if (!entityIndex.TryGetByEntityId(targetEid, out var targetEntity))
-                        return;
-                    
-                    logger.LogDebug(" -> Alvo em potencial: entidade {TargetEntityId}", targetEid);
-                    
-                    // TODO: Lógica de dano
-                });
+                    logger.LogInformation("Alvo encontrado: {target}. Aplicando dano...", targetEntity);
+
+                    // TODO: Aplicar dano ao alvo.
+                    // A melhor prática é adicionar um componente de evento, ex:
+                    // World.Add(targetEntity, new TakeDamageEvent { Amount = 10, Source = entity });
+                    // Outro sistema (ex: HealthSystem) processaria esse evento.
+                }
             }
         }
-        else if (a.CooldownRemaining > 0f)
+        // Se a ação está na fase de "cooldown"
+        else if (action.CooldownRemaining > 0f)
         {
-            a.CooldownRemaining -= dt;
-            if (a.CooldownRemaining <= 0f)
+            action.CooldownRemaining -= dt;
+            if (action.CooldownRemaining <= 0f)
             {
-                World.Remove<AttackAction>(e);
+                // Cooldown terminou, remove o componente para permitir um novo ataque.
+                World.Remove<AttackAction>(entity);
             }
         }
     }

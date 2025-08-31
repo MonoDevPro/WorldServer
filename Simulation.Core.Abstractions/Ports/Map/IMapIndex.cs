@@ -1,6 +1,6 @@
-using Simulation.Core.Abstractions.Adapters.Data;
+using Simulation.Core.Abstractions.Adapters.Map;
 
-namespace Simulation.Core.Abstractions.Ports;
+namespace Simulation.Core.Abstractions.Ports.Map;
 
 public interface IMapIndex
 {

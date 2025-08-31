@@ -6,17 +6,17 @@ namespace Simulation.Core.Abstractions.Adapters.Char;
 public enum Gender : int { None, Male, Female }
 public enum Vocation : int { None, Mage, Archer }
 
-public struct CharSnapshot: INetSerializable
+public class CharTemplate: INetSerializable
 {
-    public string Name;
+    public string Name = string.Empty;
     public Gender Gender;
     public Vocation Vocation;
     
     // ECS Identifiers
     public int CharId;
     public int MapId;
-    public GameCoord Position;
-    public GameDirection Direction;
+    public Position Position;
+    public Direction Direction;
     public float MoveSpeed;
     public float AttackCastTime;
     public float AttackCooldown;
@@ -58,11 +58,11 @@ public struct CharSnapshot: INetSerializable
         // Coord/Direction
         var posX = reader.GetInt();
         var posY = reader.GetInt();
-        Position = new GameCoord(posX, posY);
+        Position = new Position { X = posX, Y = posY };
 
         var dirX = reader.GetInt();
         var dirY = reader.GetInt();
-        Direction = new GameDirection(dirX, dirY);
+        Direction = new Direction { X = dirX, Y = dirY };
 
         // Stats
         MoveSpeed = reader.GetFloat();

@@ -1,9 +1,8 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using Simulation.Core.Abstractions.Adapters.Data;
-using Simulation.Core.Abstractions.Commons;
+using Simulation.Core.Abstractions.Adapters.Map;
 using Simulation.Core.Abstractions.Ports;
-using Simulation.Core.Utilities.Serialization;
+using Simulation.Core.Abstractions.Ports.Map;
 
 namespace Simulation.Console;
 
@@ -11,7 +10,7 @@ namespace Simulation.Console;
 /// Serviço responsável por carregar mapas do disco (ou criar mapa padrão), 
 /// converter para MapData e enfileirar no IMapLoaderSystem para aplicação no World.
 /// </summary>
-public sealed class MapLoaderService : IDisposable
+public sealed class MapLoaderService : IMapLoaderService
 {
     private readonly IMapLoaderSystem _mapLoaderSystem;
     private readonly ILogger<MapLoaderService> _logger;
@@ -32,13 +31,6 @@ public sealed class MapLoaderService : IDisposable
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _mapsDirectory = mapsDirectory ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "Maps");
         _jsonOptions = jsonOptions ?? new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
-        
-        // registrar converters
-        _jsonOptions.Converters.Add(new IntWrapperConverter<MapId>(v => new MapId(v)));
-        _jsonOptions.Converters.Add(new IntWrapperConverter<CharId>(v => new CharId(v)));
-        _jsonOptions.Converters.Add(new GameCoordConverter());
-        _jsonOptions.Converters.Add(new GameDirectionConverter());
-        _jsonOptions.Converters.Add(new GameSizeConverter());
     }
 
     private string GetMapFilePath(int mapId) => Path.Combine(_mapsDirectory, $"{MapPrefix}{mapId}{MapExtension}");
@@ -112,8 +104,8 @@ public sealed class MapLoaderService : IDisposable
     }
 
     // Validate template dimensions and arrays BEFORE calling CreateFromTemplate
-    var width = template.MapSize.Value.Width;
-    var height = template.MapSize.Value.Height;
+    var width = template.Width;
+    var height = template.Height;
     bool invalidDims = width <= 0 || height <= 0;
     var expected = (invalidDims ? 0 : width * height);
 
@@ -161,7 +153,7 @@ public sealed class MapLoaderService : IDisposable
     {
         if (template == null) throw new ArgumentNullException(nameof(template));
         Directory.CreateDirectory(_mapsDirectory);
-        var path = GetMapFilePath(template.MapId.Value);
+        var path = GetMapFilePath(template.MapId);
         var bytes = JsonSerializer.SerializeToUtf8Bytes(template, _jsonOptions);
         File.WriteAllBytes(path, bytes);
         _logger.LogInformation("Saved map {MapId} to {Path}", template.MapId, path);
@@ -174,7 +166,7 @@ public sealed class MapLoaderService : IDisposable
     {
         if (template == null) throw new ArgumentNullException(nameof(template));
         Directory.CreateDirectory(_mapsDirectory);
-        var path = GetMapFilePath(template.MapId.Value);
+        var path = GetMapFilePath(template.MapId);
         var bytes = JsonSerializer.SerializeToUtf8Bytes(template, _jsonOptions);
         await File.WriteAllBytesAsync(path, bytes, ct).ConfigureAwait(false);
         _logger.LogInformation("Saved map {MapId} to {Path} (async)", template.MapId, path);
@@ -210,14 +202,15 @@ public sealed class MapLoaderService : IDisposable
     {
         var dto = new MapTemplate
         {
-            MapId = new MapId(mapId),
+            MapId = mapId,
             Name = $"Default Map {mapId}",
-            MapSize = new MapSize(new GameSize(width, height)),
-            Flags = new MapFlags(UsePadded: false)
+            Width = width,
+            Height = height,
+            UsePadded = false,
         };
 
-        var w = dto.MapSize.Value.Width;
-        var h = dto.MapSize.Value.Height;
+        var w = dto.Width;
+        var h = dto.Height;
         var tiles = new TileType[w * h];
         var coll = new byte[w * h];
         Array.Fill(tiles, TileType.Floor);

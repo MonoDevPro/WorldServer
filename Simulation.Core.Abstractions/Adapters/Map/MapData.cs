@@ -1,6 +1,6 @@
 using Simulation.Core.Abstractions.Commons;
 
-namespace Simulation.Core.Abstractions.Adapters.Data;
+namespace Simulation.Core.Abstractions.Adapters.Map;
 
 public class MapData
 {
@@ -85,7 +85,7 @@ public class MapData
 
     // helpers
     private int LinearPos(int x, int y) => y * Width + x;
-    private int LinearPos(GameCoord p) => p.Y * Width + p.X;
+    private int LinearPos(Position p) => p.Y * Width + p.X;
 
     // converts (x,y) -> storage index (rank or padded idx)
     public int StorageIndex(int x, int y)
@@ -104,37 +104,37 @@ public class MapData
         }
     }
 
-    public int StorageIndex(GameCoord p)
+    public int StorageIndex(Position p)
     {
         return StorageIndex(p.X, p.Y);
     }
 
     // accessors
-    public TileType GetTile(GameCoord p)
+    public TileType GetTile(Position p)
     {
         if (!InBounds(p)) throw new ArgumentOutOfRangeException(nameof(p));
         return Tiles[StorageIndex(p)];
     }
 
-    public void SetTile(GameCoord p, TileType t)
+    public void SetTile(Position p, TileType t)
     {
         if (!InBounds(p)) throw new ArgumentOutOfRangeException(nameof(p));
         Tiles[StorageIndex(p)] = t;
     }
 
-    public bool IsBlocked(GameCoord p)
+    public bool IsBlocked(Position p)
     {
         if (!InBounds(p)) throw new ArgumentOutOfRangeException(nameof(p));
         return CollisionMask[StorageIndex(p)] != 0;
     }
 
-    public void SetBlocked(GameCoord p, bool blocked)
+    public void SetBlocked(Position p, bool blocked)
     {
         if (!InBounds(p)) throw new ArgumentOutOfRangeException(nameof(p));
         CollisionMask[StorageIndex(p)] = blocked ? (byte)1 : (byte)0;
     }
 
-    public bool InBounds(GameCoord p)
+    public bool InBounds(Position p)
         => (uint)p.X < (uint)Width && (uint)p.Y < (uint)Height;
 
     // Optional: get coordinates from storage index (only meaningful for compact mode)
