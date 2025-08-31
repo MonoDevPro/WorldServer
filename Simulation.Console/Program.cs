@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using Simulation.Console;
 using Simulation.Core;
 using Simulation.Core.Abstractions.Adapters.Map;
-using Simulation.Core.Abstractions.Ports;
 using Simulation.Core.Abstractions.Ports.Map;
 using Simulation.Network;
 

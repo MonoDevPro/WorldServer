@@ -17,11 +17,9 @@ public sealed partial class GridMovementSystem(
     World world,
     IMapIndex mapIndex,
     ISpatialIndex spatialIndex,
-    ICharIndex charIndex,
     ILogger<GridMovementSystem> logger)
     : BaseSystem<World, float>(world)
 {
-    private readonly ICharIndex _charIndex = charIndex;
     private readonly List<Entity> _queryResults = new();
 
     /// <summary>
