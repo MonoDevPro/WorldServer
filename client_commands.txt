@@ -1,0 +1,7 @@
+enter 1
+move 1 0
+move 0 1
+attack
+teleport 1 5 5
+exit
+quit

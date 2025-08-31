@@ -47,17 +47,23 @@ public class ClientLoop : IAsyncDisposable
             // Conecta ao servidor
             _networkClient.Connect();
             
-            // Aguarda um momento para a conexão estabelecer
-            await Task.Delay(1000, cancellationToken);
+            // Aguarda um momento para a conexão estabelecer (com retry)
+            var maxRetries = 10;
+            var retryDelay = 500; // ms
             
-            if (_networkClient.IsConnected)
+            for (int i = 0; i < maxRetries; i++)
             {
-                _logger.LogInformation("Cliente conectado ao servidor com sucesso");
+                await Task.Delay(retryDelay, cancellationToken);
+                _networkClient.PollEvents();
+                
+                if (_networkClient.IsConnected)
+                {
+                    _logger.LogInformation("Cliente conectado ao servidor com sucesso");
+                    return;
+                }
             }
-            else
-            {
-                _logger.LogWarning("Cliente não conseguiu conectar ao servidor");
-            }
+            
+            _logger.LogWarning("Cliente não conseguiu conectar ao servidor após {Retries} tentativas", maxRetries);
         }
         catch (Exception ex)
         {
