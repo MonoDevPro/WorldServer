@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\QuadTrees\QuadTrees\QuadTrees.csproj" />
+      <ProjectReference Include="..\Simulation.Domain\Simulation.Domain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Arch" Version="2.1.0" />
+        <PackageReference Include="Arch.LowLevel" Version="1.1.5" />
+        <PackageReference Include="Arch.System" Version="1.1.0" />
+        <PackageReference Include="Arch.System.SourceGenerator" Version="2.1.0" />
+        <PackageReference Include="Arch.EventBus" Version="1.0.2" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+    </ItemGroup>
+
+</Project>

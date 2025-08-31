@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
-using Simulation.Client.Core;
-using Simulation.Core.Abstractions.Adapters;
-using Simulation.Core.Abstractions.Commons;
+using Simulation.Application.DTOs;
+using Simulation.Domain.Components;
+using Simulation.Networking.DTOs.Intents;
 
 namespace Simulation.Client.Core;
 
@@ -60,7 +60,7 @@ public class InputManager
                     return;
                 }
                 _currentCharId = charId;
-                _intentSender.SendIntent(new EnterIntent(charId));
+                _intentSender.SendIntent(new EnterIntentPacket { CharId = charId });
                 Console.WriteLine($"A entrar no jogo com CharId {charId}...");
                 break;
             case "exit":
@@ -70,8 +70,7 @@ public class InputManager
                     return;
                 }
 
-                var intent = new ExitIntent(_currentCharId);
-                _intentSender.SendIntent(intent);
+                _intentSender.SendIntent(new ExitIntentPacket { CharId = _currentCharId });
                 _logger.LogInformation("Enviado ExitIntent para CharId {CharId}", _currentCharId);
                 Console.WriteLine($"Saindo com personagem {_currentCharId}...");
                 _currentCharId = -1;
@@ -90,8 +89,11 @@ public class InputManager
                 }
 
                 var input = new Input { X = x, Y = y };
-                var intent1 = new MoveIntent(_currentCharId, input);
-                _intentSender.SendIntent(intent1);
+                _intentSender.SendIntent(new MoveIntentPacket
+                {
+                    CharId = _currentCharId,
+                    Input = input
+                });
                 _logger.LogTrace("Enviado MoveIntent para CharId {CharId}: ({X}, {Y})", _currentCharId, x, y);
                 Console.WriteLine($"Movendo personagem {_currentCharId} para direção ({x}, {y})");
                 break;
@@ -103,8 +105,7 @@ public class InputManager
                     return;
                 }
 
-                var intent2 = new AttackIntent(_currentCharId);
-                _intentSender.SendIntent(intent2);
+                _intentSender.SendIntent(new AttackIntentPacket { AttackerCharId = _currentCharId });
                 _logger.LogInformation("Enviado AttackIntent para CharId {CharId}", _currentCharId);
                 Console.WriteLine($"Personagem {_currentCharId} está atacando!");
                 break;
@@ -123,8 +124,12 @@ public class InputManager
                 }
 
                 var position = new Position { X = posX, Y = posY };
-                var intent3 = new TeleportIntent(_currentCharId, mapId, position);
-                _intentSender.SendIntent(intent3);
+                _intentSender.SendIntent(new TeleportIntentPacket
+                {
+                    CharId = _currentCharId,
+                    MapId = mapId,
+                    Position = position
+                });
                 _logger.LogInformation("Enviado TeleportIntent para CharId {CharId} para MapId {MapId} ({X}, {Y})", 
                     _currentCharId, mapId, posX, posY);
                 Console.WriteLine($"Teleportando personagem {_currentCharId} para mapa {mapId} em ({posX}, {posY})");

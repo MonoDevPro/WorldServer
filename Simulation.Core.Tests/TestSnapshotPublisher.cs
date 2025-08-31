@@ -1,6 +1,6 @@
 using System.Collections.Generic;
-using Simulation.Core.Abstractions.Adapters;
-using Simulation.Core.Abstractions.Ports;
+using Simulation.Application.DTOs;
+using Simulation.Application.Ports;
 
 namespace Simulation.Core.Tests;
 

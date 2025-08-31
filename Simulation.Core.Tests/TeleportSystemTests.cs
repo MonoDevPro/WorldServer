@@ -1,21 +1,21 @@
 using System;
 using Arch.Core;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Simulation.Core;
-using Simulation.Core.Abstractions.Adapters;
-using Simulation.Core.Abstractions.Adapters.Char;
-using Simulation.Core.Abstractions.Adapters.Map;
-using Simulation.Core.Abstractions.Commons;
-using Simulation.Core.Abstractions.Ports;
-using Simulation.Core.Abstractions.Ports.Char;
-using Simulation.Core.Abstractions.Ports.Index;
-using Simulation.Core.Abstractions.Ports.Map;
-using Simulation.Core.Abstractions.Adapters.Spatial;
-using Simulation.Core.Adapters;
+using Simulation.Application.DTOs;
+using Simulation.Application.Factories;
+using Simulation.Application.Options;
+using Simulation.Application.Ports;
+using Simulation.Application.Ports.Char;
+using Simulation.Application.Ports.Index;
+using Simulation.Application.Ports.Map;
+using Simulation.Application.Services;
+using Simulation.Application.Systems;
 using Simulation.Core.Systems;
+using Simulation.Domain.Components;
+using Simulation.Domain.Templates;
+using Simulation.Persistence;
 using Xunit;
 
 namespace Simulation.Core.Tests;
@@ -66,8 +66,8 @@ public class TeleportSystemTests
     // register two simple 10x10 maps
     var mt0 = new MapTemplate { MapId = 0, Name = "m0", Width = 10, Height = 10, TilesRowMajor = new TileType[100], CollisionRowMajor = new byte[100] };
     var mt1 = new MapTemplate { MapId = 1, Name = "m1", Width = 10, Height = 10, TilesRowMajor = new TileType[100], CollisionRowMajor = new byte[100] };
-    mapLoader.EnqueueMapData(MapData.CreateFromTemplate(mt0));
-    mapLoader.EnqueueMapData(MapData.CreateFromTemplate(mt1));
+    mapLoader.EnqueueMapData(MapService.CreateFromTemplate(mt0));
+    mapLoader.EnqueueMapData(MapService.CreateFromTemplate(mt1));
         Step(runner, 1);
 
     var intents = sp.GetRequiredService<IIntentHandler>();
@@ -87,7 +87,7 @@ public class TeleportSystemTests
         var (sp, world, runner, pub) = CreateSim();
     var mapLoader = sp.GetRequiredService<IMapLoaderSystem>();
     var mt0 = new MapTemplate { MapId = 0, Name = "m0", Width = 10, Height = 10, TilesRowMajor = new TileType[100], CollisionRowMajor = new byte[100] };
-    mapLoader.EnqueueMapData(MapData.CreateFromTemplate(mt0));
+    mapLoader.EnqueueMapData(MapService.CreateFromTemplate(mt0));
         Step(runner, 1);
 
     var intents = sp.GetRequiredService<IIntentHandler>();

@@ -1,11 +1,10 @@
 using Arch.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using Simulation.Application.Options;
 using Simulation.Client.Core;
 using Simulation.Client.Network;
 using Simulation.Client.Systems;
-using Simulation.Network;
 
 namespace Simulation.Client;
 

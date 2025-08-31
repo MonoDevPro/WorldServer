@@ -1,4 +1,4 @@
-using Simulation.Core.Abstractions.Adapters;
+using Simulation.Application.DTOs;
 
 namespace Simulation.Client.Core;
 

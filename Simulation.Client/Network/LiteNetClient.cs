@@ -3,10 +3,12 @@ using LiteNetLib.Utils;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Simulation.Client.Core;
-using Simulation.Core.Abstractions.Adapters;
-using Simulation.Network;
 using System.Net;
 using System.Net.Sockets;
+using Simulation.Application.DTOs;
+using Simulation.Application.Options;
+using Simulation.Networking.DTOs.Intents;
+using Simulation.Networking.DTOs.Snapshots;
 
 namespace Simulation.Client.Network;
 
@@ -64,20 +66,20 @@ public class LiteNetClient : INetEventListener, IIntentSender, IDisposable
 
     private void RegisterSnapshotHandlers()
     {
-        _packetProcessor.SubscribeNetSerializable<EnterSnapshot>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot));
-        _packetProcessor.SubscribeNetSerializable<CharSnapshot>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot));
-        _packetProcessor.SubscribeNetSerializable<ExitSnapshot>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot));
-        _packetProcessor.SubscribeNetSerializable<MoveSnapshot>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot));
-        _packetProcessor.SubscribeNetSerializable<AttackSnapshot>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot));
-        _packetProcessor.SubscribeNetSerializable<TeleportSnapshot>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot));
+        _packetProcessor.SubscribeNetSerializable<EnterSnapshotPacket>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot.ToDTO()));
+        _packetProcessor.SubscribeNetSerializable<CharSnapshotPacket>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot.ToDTO()));
+        _packetProcessor.SubscribeNetSerializable<ExitSnapshotPacket>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot.ToDTO()));
+        _packetProcessor.SubscribeNetSerializable<MoveSnapshotPacket>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot.ToDTO()));
+        _packetProcessor.SubscribeNetSerializable<AttackSnapshotPacket>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot.ToDTO()));
+        _packetProcessor.SubscribeNetSerializable<TeleportSnapshotPacket>((snapshot) => _snapshotHandler.HandleSnapshot(snapshot.ToDTO()));
     }
 
     // IIntentSender implementation
-    public void SendIntent(in EnterIntent intent) => SendIntentToServer(intent);
-    public void SendIntent(in ExitIntent intent) => SendIntentToServer(intent);
-    public void SendIntent(in MoveIntent intent) => SendIntentToServer(intent);
-    public void SendIntent(in AttackIntent intent) => SendIntentToServer(intent);
-    public void SendIntent(in TeleportIntent intent) => SendIntentToServer(intent);
+    public void SendIntent(in EnterIntentPacket intent) => SendIntentToServer(intent);
+    public void SendIntent(in ExitIntentPacket intent) => SendIntentToServer(intent);
+    public void SendIntent(in MoveIntentPacket intent) => SendIntentToServer(intent);
+    public void SendIntent(in AttackIntentPacket intent) => SendIntentToServer(intent);
+    public void SendIntent(in TeleportIntentPacket intent) => SendIntentToServer(intent);
 
     private void SendIntentToServer<T>(in T intent) where T : struct, INetSerializable
     {

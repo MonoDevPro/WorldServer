@@ -13,11 +13,6 @@
     </ItemGroup>
     
   <ItemGroup>
-    <ProjectReference Include="..\Simulation.Core.Abstractions\Simulation.Core.Abstractions.csproj" />
-    <ProjectReference Include="..\Simulation.Network\Simulation.Network.csproj" />
-  </ItemGroup>
-    
-  <ItemGroup>
       <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
       <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.0" />
       <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
@@ -25,5 +20,11 @@
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
       <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
       <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+  </ItemGroup>
+    
+  <ItemGroup>
+    <ProjectReference Include="..\Simulation.Application\Simulation.Application.csproj" />
+    <ProjectReference Include="..\Simulation.Domain\Simulation.Domain.csproj" />
+    <ProjectReference Include="..\Simulation.Networking\Simulation.Networking.csproj" />
   </ItemGroup>
 </Project>

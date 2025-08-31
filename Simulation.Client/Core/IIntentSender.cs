@@ -1,4 +1,5 @@
-using Simulation.Core.Abstractions.Adapters;
+using Simulation.Application.DTOs;
+using Simulation.Networking.DTOs.Intents;
 
 namespace Simulation.Client.Core;
 
@@ -8,9 +9,9 @@ namespace Simulation.Client.Core;
 /// </summary>
 public interface IIntentSender
 {
-    void SendIntent(in EnterIntent intent);
-    void SendIntent(in ExitIntent intent);
-    void SendIntent(in MoveIntent intent);
-    void SendIntent(in AttackIntent intent);
-    void SendIntent(in TeleportIntent intent);
+    void SendIntent(in EnterIntentPacket intent);
+    void SendIntent(in ExitIntentPacket intent);
+    void SendIntent(in MoveIntentPacket intent);
+    void SendIntent(in AttackIntentPacket intent);
+    void SendIntent(in TeleportIntentPacket intent);
 }

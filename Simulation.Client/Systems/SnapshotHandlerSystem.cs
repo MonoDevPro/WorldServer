@@ -3,10 +3,11 @@ using Arch.Buffer;
 using Arch.Core;
 using Arch.System;
 using Microsoft.Extensions.Logging;
+using Simulation.Application.DTOs;
+using Simulation.Application.Factories;
 using Simulation.Client.Core;
-using Simulation.Core.Abstractions.Adapters;
-using Simulation.Core.Abstractions.Adapters.Char;
-using Simulation.Core.Abstractions.Commons;
+using Simulation.Domain.Components;
+using Simulation.Domain.Templates;
 
 namespace Simulation.Client.Systems;
 
