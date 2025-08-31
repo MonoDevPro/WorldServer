@@ -10,8 +10,12 @@ public static class CharFactory
     // Esta é agora a única fonte da verdade para a estrutura de um personagem.
     private static readonly ComponentType[] CharacterArchetype =
     {
-        Component<CharId>.ComponentType, Component<MapId>.ComponentType, Component<Position>.ComponentType,
-        Component<Direction>.ComponentType, Component<MoveStats>.ComponentType, Component<AttackStats>.ComponentType,
+        Component<CharId>.ComponentType, 
+        Component<MapId>.ComponentType, 
+        Component<Position>.ComponentType,
+        Component<Direction>.ComponentType, 
+        Component<MoveStats>.ComponentType, 
+        Component<AttackStats>.ComponentType,
         Component<Blocking>.ComponentType
     };
     private static readonly Signature CharacterSignature = SignatureBuilder.Create(CharacterArchetype);

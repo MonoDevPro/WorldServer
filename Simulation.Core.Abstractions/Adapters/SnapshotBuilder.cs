@@ -17,9 +17,9 @@ public static class SnapshotBuilder
         var charId = world.Get<CharId>(newEntity).Value;
         var characterSnapshots = new List<CharTemplate>();
 
-        world.Query(in CharFactory.QueryDescription, (ref Entity entity, ref MapId entityMapId) =>
+        world.Query(in CharFactory.QueryDescription, (Entity entity, ref MapId mid) =>
         {
-            if (entityMapId.Value == mapId)
+            if (mid.Value == mapId)
                 characterSnapshots.Add(CharFactory.CreateCharTemplate(world, entity));
         });
 

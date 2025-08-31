@@ -91,14 +91,14 @@ public class LiteNetServer : INetEventListener
         _packetProcessor.SubscribeNetSerializable<TeleportIntent, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, () => _intentHandler.HandleIntent(intent)));
     }
     
-    private void HandleAuthenticatedIntent<T>(T intent, NetPeer peer, Delegate process) where T : struct
+    private void HandleAuthenticatedIntent<T>(T intent, NetPeer peer, Action process) where T : struct
     {
         if (!_peerToCharId.ContainsKey(peer))
         {
             _logger.LogWarning("Intent {IntentType} recebido de um peer não autenticado {PeerEndPoint}. Ignorando.", typeof(T).Name, peer.Address);
             return;
         }
-        process.DynamicInvoke();
+        process();
     }
 
     #region INetEventListener Implementation

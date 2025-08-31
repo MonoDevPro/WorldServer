@@ -9,18 +9,18 @@ namespace Simulation.Console;
 /// <summary>
 /// Orquestra o ciclo de vida do servidor, incluindo inicialização, o loop principal do jogo e o desligamento.
 /// </summary>
-public class SimulationLoop : IAsyncDisposable
+public class ServerLoop : IAsyncDisposable
 {
     private const double TickSeconds = 1.0 / 60.0; // 60 ticks por segundo
     private readonly Stopwatch _mainTimer = new();
     
-    private readonly ILogger<SimulationLoop> _logger;
+    private readonly ILogger<ServerLoop> _logger;
     private readonly SimulationRunner _simulationRunner;
     private readonly LiteNetServer _networkServer;
     private readonly IMapLoaderService _mapLoaderService;
 
-    public SimulationLoop(
-        ILogger<SimulationLoop> logger,
+    public ServerLoop(
+        ILogger<ServerLoop> logger,
         SimulationRunner simulationRunner,
         IMapLoaderService mapLoaderService,
         LiteNetServer networkServer)
@@ -41,6 +41,7 @@ public class SimulationLoop : IAsyncDisposable
         {
             // Carrega o mapa inicial (ex: mapa 1) antes de aceitar conexões.
             // O MapLoaderService enfileira o trabalho, que será processado no primeiro tick pelo MapLoaderSystem.
+            await _mapLoaderService.LoadMapAsync(0, cancellationToken);
             await _mapLoaderService.LoadMapAsync(1, cancellationToken);
             _logger.LogInformation("Mapa inicial (ID 1) enfileirado para carregamento.");
             

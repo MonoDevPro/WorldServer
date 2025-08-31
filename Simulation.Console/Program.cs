@@ -27,13 +27,13 @@ services.AddSimulationNetwork(configuration);
 
 // Registra os serviços específicos da aplicação Console
 services.AddSingleton<IMapLoaderService, MapLoaderService>();
-services.AddSingleton<SimulationLoop>();
+services.AddSingleton<ServerLoop>();
 
 // Constrói o provedor de serviços
 await using var provider = services.BuildServiceProvider();
 
 // 3. Resolução dos Serviços Principais
-var loop = provider.GetRequiredService<SimulationLoop>();
+var loop = provider.GetRequiredService<ServerLoop>();
 var logger = provider.GetRequiredService<ILogger<Program>>();
 
 // 4. Configuração do Encerramento Graceful (Ctrl+C)

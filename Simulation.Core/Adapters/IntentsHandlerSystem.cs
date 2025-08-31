@@ -57,6 +57,7 @@ public class IntentsHandlerSystem : BaseSystem<World, float>, IIntentHandler
         ConsumeExitIntents();
         ConsumeMoveIntents();
         ConsumeAttackIntents();
+        ConsumeTeleportIntents();
 
         // Aplica todas as mudanças agendadas ao mundo de uma só vez.
         _cmd.Playback(World, dispose: true);
