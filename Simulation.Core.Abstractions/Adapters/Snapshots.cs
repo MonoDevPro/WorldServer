@@ -7,13 +7,24 @@ namespace Simulation.Core.Abstractions.Adapters;
 public record struct EnterSnapshot(int mapId, int charId, CharTemplate[] templates) : INetSerializable
 {
     public void Serialize(NetDataWriter writer) { writer.Put(mapId); writer.Put(charId); writer.PutArray(templates); }
-    public void Deserialize(NetDataReader reader) { mapId = reader.GetInt(); charId = reader.GetInt(); templates = reader.GetArray<CharTemplate>(() => new CharTemplate()); }
+    public void Deserialize(NetDataReader reader) 
+    { 
+        mapId = reader.GetInt(); 
+        charId = reader.GetInt(); 
+        templates = reader.GetArray(() => new CharTemplate()); 
+    }
 }
 public record struct CharSnapshot(int MapId, int CharId, CharTemplate Template) : INetSerializable
 {
     public void Serialize(NetDataWriter writer) { writer.Put(MapId); writer.Put(CharId); writer.Put(Template); }
 
-    public void Deserialize(NetDataReader reader) { MapId = reader.GetInt(); CharId = reader.GetInt(); Template = new CharTemplate(); reader.Get(() => new CharTemplate()); }
+    public void Deserialize(NetDataReader reader) 
+    { 
+        MapId = reader.GetInt(); 
+        CharId = reader.GetInt(); 
+        Template = new CharTemplate();
+        Template.Deserialize(reader);
+    }
 }
 public record struct ExitSnapshot(int CharId) : INetSerializable
 {
