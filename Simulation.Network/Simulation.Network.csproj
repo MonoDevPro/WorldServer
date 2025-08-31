@@ -3,7 +3,7 @@
     <PropertyGroup>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
     </PropertyGroup>
 
     <ItemGroup>
@@ -16,7 +16,7 @@
 
     <ItemGroup>
       <Reference Include="Microsoft.Extensions.Options">
-        <HintPath>..\..\..\.nuget\packages\microsoft.extensions.options\9.0.8\lib\net9.0\Microsoft.Extensions.Options.dll</HintPath>
+        <HintPath>..\..\..\.nuget\packages\microsoft.extensions.options\9.0.8\lib\net8.0\Microsoft.Extensions.Options.dll</HintPath>
       </Reference>
     </ItemGroup>
 
