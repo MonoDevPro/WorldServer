@@ -19,7 +19,7 @@ public class QuadTreeIndex : ISpatialIndex
         public Entity Entity { get; } = entity;
         public Rectangle Rect { get; set; } = new(pos.X, pos.Y, 1, 1); // Assumindo tamanho 1x1
     }
-        
+    
     private readonly QuadTreeRect<QuadTreeItem> _qtree;
     private readonly Dictionary<Entity, QuadTreeItem> _items = new();
 

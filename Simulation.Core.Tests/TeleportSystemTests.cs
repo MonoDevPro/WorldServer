@@ -12,7 +12,6 @@ using Simulation.Application.Ports.Index;
 using Simulation.Application.Ports.Map;
 using Simulation.Application.Services;
 using Simulation.Application.Systems;
-using Simulation.Core.Systems;
 using Simulation.Domain.Components;
 using Simulation.Domain.Templates;
 using Simulation.Persistence;

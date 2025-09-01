@@ -5,13 +5,9 @@ using Microsoft.Extensions.Logging;
 using Simulation.Application.Factories;
 using Simulation.Application.Options;
 using Simulation.Application.Ports;
-using Simulation.Application.Ports.Char;
-using Simulation.Application.Ports.Index;
 using Simulation.Application.Ports.Map;
 using Simulation.Application.Services;
 using Simulation.Application.Systems;
-using Simulation.Core;
-using Simulation.Core.Systems;
 using Simulation.Networking;
 using Simulation.Persistence;
 

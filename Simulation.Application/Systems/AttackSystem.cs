@@ -7,7 +7,7 @@ using Simulation.Application.DTOs;
 using Simulation.Application.Ports.Index;
 using Simulation.Domain.Components;
 
-namespace Simulation.Core.Systems
+namespace Simulation.Application.Systems
 {
     /// <summary>
     /// Gerencia a lógica de ataques, desde a intenção até a aplicação de dano.

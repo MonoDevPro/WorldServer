@@ -2,7 +2,6 @@ using Arch.Core;
 using Arch.System;
 using Microsoft.Extensions.DependencyInjection;
 using Simulation.Application.Systems;
-using Simulation.Core.Systems;
 
 namespace Simulation.Application.Services;
 

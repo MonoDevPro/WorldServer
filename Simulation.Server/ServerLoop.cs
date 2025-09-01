@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Simulation.Application.Ports.Map;
-using Simulation.Core;
+using Simulation.Application.Services;
 using Simulation.Networking;
 
 namespace Simulation.Server;

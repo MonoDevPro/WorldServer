@@ -1,9 +1,8 @@
 using Arch.Core;
 using Arch.System;
 using Microsoft.Extensions.Logging;
-using Simulation.Application.Services;
 
-namespace Simulation.Core;
+namespace Simulation.Application.Services;
 
 /// <summary>
 /// Serviço hospedado que executa o loop de simulação com timestep fixo e aplica comandos enfileirados.
