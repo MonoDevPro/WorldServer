@@ -1,5 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Simulation.Application.Ports.Char.Indexers;
+using Simulation.Application.Ports.Commons.Persistence;
+using Simulation.Application.Ports.Map.Indexers;
+using Simulation.Networking;
 using Simulation.Server;
 
 // 2. Construção do Container de Injeção de Dependência
@@ -11,6 +15,8 @@ services.AddServerServices();
 await using var provider = services.BuildServiceProvider();
 
 // 3. Resolução dos Serviços Principais
+
+var network = provider.GetRequiredService<LiteNetServer>();
 var loop = provider.GetRequiredService<ServerLoop>();
 var logger = provider.GetRequiredService<ILogger<Program>>();
 
@@ -26,8 +32,12 @@ Console.CancelKeyPress += (sender, eventArgs) =>
 // 5. Execução do Ciclo de Vida do Servidor
 try
 {
-    // Etapa 1: Inicializa o servidor (carrega mapas, inicia a rede, etc.)
-    await loop.InitializeAsync(cts.Token).ConfigureAwait(false);
+    // Initialize Seeds
+    using (var scope = provider.CreateScope())
+    {
+        var inits = scope.ServiceProvider.GetServices<IInitializable>();
+        foreach (var init in inits) init.Initialize();
+    }
     
     // Etapa 2: Executa o loop principal do jogo
     await loop.RunAsync(cts.Token).ConfigureAwait(false);

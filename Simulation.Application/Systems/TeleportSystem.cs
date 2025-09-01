@@ -5,8 +5,9 @@ using Arch.System.SourceGenerator;
 using Microsoft.Extensions.Logging;
 using Simulation.Application.DTOs;
 using Simulation.Application.Ports.Char;
-using Simulation.Application.Ports.Index;
+using Simulation.Application.Ports.Char.Indexers;
 using Simulation.Application.Ports.Map;
+using Simulation.Application.Ports.Map.Indexers;
 using Simulation.Domain.Components;
 
 namespace Simulation.Application.Systems;
@@ -71,7 +72,7 @@ public sealed partial class TeleportSystem(
     /// </summary>
     private bool IsTeleportInvalid(Entity entity, int mapIdValue, Position targetPos)
     {
-        if (!mapIndex.TryGetMap(mapIdValue, out var mapData))
+        if (!mapIndex.TryGet(mapIdValue, out var mapData))
         {
             logger.LogWarning("Tentativa de teleporte para mapa inválido: {MapId}", mapIdValue);
             return true; // Mapa de destino não existe

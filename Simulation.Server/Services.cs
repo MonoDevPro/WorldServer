@@ -1,15 +1,21 @@
 using Arch.Core;
+using Arch.System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Simulation.Application.Factories;
 using Simulation.Application.Options;
 using Simulation.Application.Ports;
+using Simulation.Application.Ports.Char;
 using Simulation.Application.Ports.Map;
 using Simulation.Application.Services;
 using Simulation.Application.Systems;
+using Simulation.Application.Systems.In;
+using Simulation.Application.Systems.Out;
 using Simulation.Networking;
 using Simulation.Persistence;
+using Simulation.Persistence.Map;
+using CharSnapshotPublisherSystem = Simulation.Application.Systems.Out.CharSnapshotPublisherSystem;
 
 namespace Simulation.Server;
 
@@ -34,35 +40,36 @@ public static class Services
         services.AddSimulationNetwork(configuration);
 
         // Registra os serviços específicos da aplicação Console
-        services.AddSingleton<IMapLoaderService, MapLoaderService>();
         services.AddSingleton<ServerLoop>();
         
         
         // --- Núcleo do ECS ---
         // Registra o World como um singleton. Cada sistema receberá a mesma instância.
         services.AddSingleton<World>(provider => WorldFactory.Create());
-
+        
+        services.AddSingleton<MapIntentHandlerSystem>();
+        services.AddSingleton<CharIntentsHandlerSystem>();
+        services.AddSingleton<MapSnapshotPublisherSystem>();
+        services.AddSingleton<CharSnapshotPublisherSystem>();
+        services.AddSingleton<IMapSnapshotPublisher, MapLoaderHandler>();
+        services.AddSingleton<IMapIntentHandler>(sp => sp.GetRequiredService<MapIntentHandlerSystem>());
+        services.AddSingleton<ICharIntentHandler>(sp => sp.GetRequiredService<CharIntentsHandlerSystem>());
+        
         // --- Sistemas da Simulação ---
-        // A ordem de registro como singleton não importa, mas a ordem de execução no pipeline sim.
-
-        // Sistemas de Entrada/Saída
-        services.AddSingleton<IntentsHandlerSystem>();
-        services.AddSingleton<IIntentHandler>(sp => sp.GetRequiredService<IntentsHandlerSystem>());
-        
-        services.AddSingleton<MapLoaderSystem>();
-        services.AddSingleton<IMapLoaderSystem>(sp => sp.GetRequiredService<MapLoaderSystem>());
-        
-        services.AddSingleton<SnapshotPublisherSystem>();
-
-        // Sistemas de Lógica de Jogo
-        services.AddSingleton<PlayerLifecycleSystem>();
-        services.AddSingleton<LifetimeSystem>(); // Para entidades temporárias
-        services.AddSingleton<GridMovementSystem>();
-        services.AddSingleton<TeleportSystem>();
-        services.AddSingleton<AttackSystem>();
-        
-        // Sistemas de Sincronização e Finalização
-        services.AddSingleton<SpatialIndexSyncSystem>();
+        // A ordem de registro deve ser respeitada, pois define a ordem de execução no pipeline.
+        // Intenções de Entrada
+        services.AddSingleton<ISystem<float>>( p => p.GetRequiredService<MapIntentHandlerSystem>());
+        services.AddSingleton<ISystem<float>>( p => p.GetRequiredService<CharIntentsHandlerSystem>());
+        // Lógica de Jogo
+        services.AddSingleton<ISystem<float>, PlayerLifecycleSystem>();
+        services.AddSingleton<ISystem<float>, GridMovementSystem>();
+        services.AddSingleton<ISystem<float>, TeleportSystem>();
+        services.AddSingleton<ISystem<float>, AttackSystem>();
+        services.AddSingleton<ISystem<float>, LifetimeSystem>();
+        services.AddSingleton<ISystem<float>, SpatialIndexSyncSystem>();
+        // Publicadores de Estado (Snapshots)
+        services.AddSingleton<ISystem<float>, MapSnapshotPublisherSystem>();
+        services.AddSingleton<ISystem<float>, CharSnapshotPublisherSystem>();
 
         // --- Pipeline e Runner ---
         // O SimulationPipeline irá injetar todos os sistemas registrados acima na ordem correta.

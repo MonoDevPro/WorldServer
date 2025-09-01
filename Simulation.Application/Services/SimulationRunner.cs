@@ -23,7 +23,6 @@ public class SimulationRunner : BaseSystem<World, float>
 
     public override void Update(in float deltaTime)
     {
-        foreach (var system in _systems)
-            system.Update(deltaTime);
+        _systems.Tick(World, in deltaTime);
     }
 }

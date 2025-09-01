@@ -4,8 +4,8 @@ using Arch.System;
 using Arch.System.SourceGenerator;
 using Microsoft.Extensions.Logging;
 using Simulation.Application.DTOs;
-using Simulation.Application.Ports.Index;
 using Simulation.Application.Ports.Map;
+using Simulation.Application.Ports.Map.Indexers;
 using Simulation.Domain.Components;
 using Simulation.Domain.Helpers;
 
@@ -101,7 +101,7 @@ public sealed partial class GridMovementSystem(
 
     private bool IsMoveInvalid(Entity entity, int mapId, Position target)
     {
-        if (!mapIndex.TryGetMap(mapId, out var currentMap))
+        if (!mapIndex.TryGet(mapId, out var currentMap))
         {
             logger.LogWarning("Mapa {MapId} não encontrado para validação de movimento.", mapId);
             return true; // Se o mapa não existe, o movimento é inválido.

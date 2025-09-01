@@ -1,7 +1,7 @@
 using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
-using Simulation.Application.Ports.Index;
+using Simulation.Application.Ports.Map;
 using Simulation.Domain.Components;
 
 namespace Simulation.Application.Systems;

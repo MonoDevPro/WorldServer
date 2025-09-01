@@ -21,7 +21,7 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
     private readonly CommandBuffer _cmd = new(256);
     
     // Mapeia CharId para Entity no mundo local
-    private readonly Dictionary<int, Entity> _charIdToEntity = new();
+    private readonly ConcurrentDictionary<int, Entity> _charIdToEntity = new();
 
     // Filas thread-safe para snapshots recebidos da rede (evita mexer no CommandBuffer fora do Update)
     private readonly ConcurrentQueue<EnterSnapshot> _enterQueue = new();
@@ -60,7 +60,7 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
             if (_charIdToEntity.TryGetValue(ex.CharId, out var entity))
             {
                 _cmd.Destroy(entity);
-                _charIdToEntity.Remove(ex.CharId);
+                _charIdToEntity.TryRemove(ex.CharId, out _);
             }
         }
 

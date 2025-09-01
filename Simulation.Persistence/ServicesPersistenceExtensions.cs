@@ -2,16 +2,14 @@ using Arch.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Simulation.Application.Factories;
 using Simulation.Application.Options;
-using Simulation.Application.Ports;
 using Simulation.Application.Ports.Char;
-using Simulation.Application.Ports.Index;
+using Simulation.Application.Ports.Char.Indexers;
+using Simulation.Application.Ports.Commons.Persistence;
 using Simulation.Application.Ports.Map;
-using Simulation.Application.Services;
-using Simulation.Application.Systems;
-using Simulation.Core;
-using Simulation.Core.Systems;
+using Simulation.Application.Ports.Map.Indexers;
+using Simulation.Persistence.Char;
+using Simulation.Persistence.Map;
 
 namespace Simulation.Persistence;
 
@@ -24,20 +22,26 @@ public static class ServicesPersistenceExtensions
             .Bind(configuration.GetSection(WorldOptions.SectionName));
         
         // Índice Espacial (usando a implementação com QuadTree)
-        services.AddSingleton<ISpatialIndex, QuadTreeIndex>(provider =>
+        services.AddSingleton<ISpatialIndex, QuadTreeSpatial>(provider =>
         {
             var options = provider.GetRequiredService<IOptions<WorldOptions>>().Value;
-            return new QuadTreeIndex(options.MinX, options.MinY, options.Width, options.Height);
+            return new QuadTreeSpatial(options.MinX, options.MinY, options.Width, options.Height);
         });
         
-        // Índice de Personagens (CharId -> Entity)
-        services.AddSingleton<ICharIndex, CharIndex>();
         
-        // Índice de Mapas (MapId -> MapData)
-        services.AddSingleton<IMapIndex, MapIndex>();
+        // Mapas
+        services.AddSingleton<IMapIndex, MapIndex>();                               // Índice de Mapas (MapId -> MapService)
+        services.AddSingleton<IMapTemplateIndex, MapTemplateIndex>();               // Repositório de Templates ativos
+        services.AddSingleton<MapTemplateRepository>();     // Repositório de Templates banco em memória (simulando um banco de dados)
+        services.AddSingleton<IMapTemplateRepository>(provider => provider.GetRequiredService<MapTemplateRepository>());
+        services.AddSingleton<IInitializable>(provider => provider.GetRequiredService<MapTemplateRepository>());
         
-        // Repositório de Templates (simulando acesso a dados)
-        services.AddSingleton<ICharTemplateRepository, InMemoryCharTemplateRepository>();
+        // Personagens
+        services.AddSingleton<ICharIndex, CharIndex>();                             // Índice de Personagens (CharId -> Entity)
+        services.AddSingleton<ICharTemplateIndex, CharTemplateIndex>();             // Repositório de Templates ativos
+        services.AddSingleton<CharTemplateRepository>();   // Repositório de Templates banco em memória (simulando um banco de dados)
+        services.AddSingleton<ICharTemplateRepository>(provider => provider.GetRequiredService<CharTemplateRepository>());
+        services.AddSingleton<IInitializable>(provider => provider.GetRequiredService<CharTemplateRepository>());
         
         return services;
     }

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using Simulation.Application.DTOs;
 using Simulation.Application.Options;
 using Simulation.Application.Ports;
+using Simulation.Application.Ports.Char;
 using Simulation.Networking.DTOs.Intents;
 using Simulation.Networking.DTOs.Snapshots;
 
@@ -19,10 +20,10 @@ namespace Simulation.Networking;
 /// Implementa tanto a escuta de eventos de rede (INetEventListener)
 /// quanto a publicação de snapshots (ISnapshotPublisher).
 /// </summary>
-public sealed class LiteNetServer : INetEventListener, ISnapshotPublisher
+public sealed class LiteNetServer : INetEventListener, ICharSnapshotPublisher
 {
     private readonly NetManager _server;
-    private readonly IIntentHandler _intentHandler;
+    private readonly ICharIntentHandler _charIntentHandler;
     private readonly NetPacketProcessor _packetProcessor;
     private readonly ILogger<LiteNetServer> _logger;
     private readonly NetworkOptions _options;
@@ -33,12 +34,12 @@ public sealed class LiteNetServer : INetEventListener, ISnapshotPublisher
     private readonly ConcurrentDictionary<int, NetPeer> _charIdToPeer = new();
 
     public LiteNetServer(
-        IIntentHandler intentHandler, 
+        ICharIntentHandler charIntentHandler, 
         NetPacketProcessor packetProcessor,
         IOptions<NetworkOptions> options,
         ILogger<LiteNetServer> logger)
     {
-        _intentHandler = intentHandler;
+        _charIntentHandler = charIntentHandler;
         _packetProcessor = packetProcessor;
         _logger = logger;
         _options = options.Value;
@@ -154,7 +155,7 @@ public sealed class LiteNetServer : INetEventListener, ISnapshotPublisher
         {
             _logger.LogInformation("Recebido EnterIntent para CharId {CharId} do peer {PeerEndPoint}", intent.CharId, peer.Address);
             MapPeerToChar(peer, intent.CharId);
-            _intentHandler.HandleIntent(intent.ToDTO());
+            _charIntentHandler.HandleIntent(intent.ToDTO());
         });
 
         // Delega a validação para um método genérico
@@ -169,11 +170,11 @@ public sealed class LiteNetServer : INetEventListener, ISnapshotPublisher
         if (!TryValidatePeer(peer, intentCharId)) return;
 
         // Passa o intent para o ECS
-        if (intent is EnterIntentPacket enter) _intentHandler.HandleIntent(enter.ToDTO());
-        else if (intent is ExitIntentPacket exit) _intentHandler.HandleIntent(exit.ToDTO());
-        else if (intent is MoveIntentPacket move) _intentHandler.HandleIntent(move.ToDTO());
-        else if (intent is AttackIntentPacket attack) _intentHandler.HandleIntent(attack.ToDTO());
-        else if (intent is TeleportIntentPacket teleport) _intentHandler.HandleIntent(teleport.ToDTO());
+        if (intent is EnterIntentPacket enter) _charIntentHandler.HandleIntent(enter.ToDTO());
+        else if (intent is ExitIntentPacket exit) _charIntentHandler.HandleIntent(exit.ToDTO());
+        else if (intent is MoveIntentPacket move) _charIntentHandler.HandleIntent(move.ToDTO());
+        else if (intent is AttackIntentPacket attack) _charIntentHandler.HandleIntent(attack.ToDTO());
+        else if (intent is TeleportIntentPacket teleport) _charIntentHandler.HandleIntent(teleport.ToDTO());
 
         // Se for uma intenção de saída, desassocia o peer
         if (isExit)
@@ -227,7 +228,7 @@ public sealed class LiteNetServer : INetEventListener, ISnapshotPublisher
         _logger.LogInformation("Peer desconectado: {PeerEndPoint}. Motivo: {Reason}", peer.Address, disconnectInfo.Reason);
         if (_peerToCharId.TryGetValue(peer, out var charId))
         {
-            _intentHandler.HandleIntent(new ExitIntent(charId));
+            _charIntentHandler.HandleIntent(new ExitIntent(charId));
             UnmapPeer(peer);
         }
     }

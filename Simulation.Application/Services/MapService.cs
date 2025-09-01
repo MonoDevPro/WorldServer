@@ -25,7 +25,7 @@ public class MapService
     public TileType[] Tiles { get; private set; }
     public byte[] CollisionMask { get; private set; } // 0=free, 1=blocked
 
-    private MapService(int mapId, string name, int width, int height, bool usePadded)
+    private MapService(int mapId, string name, int width, int height, bool usePadded, bool borderBlocked = true)
     {
         MapId = mapId;
         Name = name ?? string.Empty;
@@ -51,6 +51,24 @@ public class MapService
             _rankToPos = rankToPos;
             Tiles = new TileType[width * height];
             CollisionMask = new byte[width * height];
+        }
+        
+        // optionally block borders
+        if (borderBlocked)
+        {
+            var coll = CollisionMask;
+            int w = Width;
+            int h = Height;
+            for (int x = 0; x < w; x++)
+            {
+                coll[x] = 1;
+                coll[(h - 1) * w + x] = 1;
+            }
+            for (int y = 0; y < h; y++)
+            {
+                coll[y * w] = 1;
+                coll[y * w + (w - 1)] = 1;
+            }
         }
     }
 
@@ -82,7 +100,7 @@ public class MapService
             collision = new byte[expected]; // default = 0 -> no collision
         }
 
-        return new MapService(template.MapId, template.Name ??= string.Empty, w, h, template.UsePadded);
+        return new MapService(template.MapId, template.Name ??= string.Empty, w, h, template.UsePadded, template.BorderBlocked);
     }
 
     // helpers

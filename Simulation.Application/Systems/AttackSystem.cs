@@ -4,7 +4,7 @@ using Arch.System;
 using Arch.System.SourceGenerator;
 using Microsoft.Extensions.Logging;
 using Simulation.Application.DTOs;
-using Simulation.Application.Ports.Index;
+using Simulation.Application.Ports.Map;
 using Simulation.Domain.Components;
 
 namespace Simulation.Application.Systems
@@ -35,11 +35,11 @@ namespace Simulation.Application.Systems
                 CooldownRemaining = 0f
             };
             World.Add(entity, attackAction);
-
+            
             // 2. Dispara um evento para a rede, notificando que o ataque começou.
             var attackSnapshot = new AttackSnapshot(cmd.AttackerCharId);
             EventBus.Send(in attackSnapshot);
-        
+            
             // 3. Remove o componente de intenção, pois já foi processado.
             World.Remove<AttackIntent>(entity);
         
