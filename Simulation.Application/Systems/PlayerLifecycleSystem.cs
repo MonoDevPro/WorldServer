@@ -79,6 +79,8 @@ public sealed partial class PlayerLifecycleSystem(
         // 3. Destrói a entidade, liberando seus componentes do mundo ECS.
         World.Destroy(e);
         
+        charTemplateIndex.Unregister(intent.CharId);
+        
         logger.LogInformation("Despawned CharId {CharId} (Entity {EntityId})", intent.CharId, e.Id);
     }
 }
