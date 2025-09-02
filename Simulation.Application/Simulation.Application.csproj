@@ -7,7 +7,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\QuadTrees\QuadTrees\QuadTrees.csproj" />
       <ProjectReference Include="..\Simulation.Domain\Simulation.Domain.csproj" />
     </ItemGroup>
 

@@ -1,73 +1,80 @@
 using System.Drawing;
 using Arch.Core;
-using QuadTrees;
-using QuadTrees.QTreeRect;
 using Simulation.Application.Ports.Map;
 using Simulation.Domain.Components;
 
 namespace Simulation.Persistence.Char;
 
 /// <summary>
-/// Adapter que implementa o ISpatialIndex usando a biblioteca Splitice/QuadTrees.
+/// Simple spatial index implementation using a dictionary-based approach.
+/// This is a temporary replacement for the QuadTree implementation.
 /// </summary>
 public class QuadTreeSpatial : ISpatialIndex
 {
-    private class QuadTreeItem(Entity entity, Position pos) : IRectQuadStorable
+    private class SpatialItem
     {
-        public Entity Entity { get; } = entity;
-        public Rectangle Rect { get; set; } = new(pos.X, pos.Y, 1, 1); // Assumindo tamanho 1x1
+        public Entity Entity { get; }
+        public Position Position { get; set; }
+
+        public SpatialItem(Entity entity, Position position)
+        {
+            Entity = entity;
+            Position = position;
+        }
     }
     
-    private readonly QuadTreeRect<QuadTreeItem> _qtree;
-    private readonly Dictionary<Entity, QuadTreeItem> _items = new();
+    private readonly Dictionary<Entity, SpatialItem> _items = new();
+    private readonly int _width;
+    private readonly int _height;
 
     public QuadTreeSpatial(int minX, int minY, int width, int height)
     {
-        _qtree = new QuadTreeRect<QuadTreeItem>(new Rectangle(minX, minY, width, height));
+        _width = width;
+        _height = height;
     }
 
     public void Add(Entity entity, Position position)
     {
         if (_items.ContainsKey(entity)) return;
-        var item = new QuadTreeItem(entity, position);
+        var item = new SpatialItem(entity, position);
         _items[entity] = item;
-        _qtree.Add(item);
     }
 
     public void Remove(Entity entity)
     {
-        if (_items.Remove(entity, out var item))
-        {
-            _qtree.Remove(item);
-        }
+        _items.Remove(entity);
     }
 
     public void Update(Entity entity, Position newPosition)
     {
         if (_items.TryGetValue(entity, out var item))
         {
-            // A forma mais segura de atualizar é remover e adicionar novamente
-            _qtree.Remove(item);
-            item.Rect = new Rectangle(newPosition.X, newPosition.Y, 1, 1);
-            _qtree.Add(item);
+            item.Position = newPosition;
         }
     }
     
     public void Query(Position center, int radius, List<Entity> results)
     {
-        var searchRect = new Rectangle(center.X - radius, center.Y - radius, radius * 2, radius * 2);
-        _qtree.GetObjects(searchRect, (obj) => results.Add(obj.Entity));
+        results.Clear();
+        var radiusSquared = radius * radius;
+        
+        foreach (var item in _items.Values)
+        {
+            var dx = item.Position.X - center.X;
+            var dy = item.Position.Y - center.Y;
+            var distanceSquared = dx * dx + dy * dy;
+            
+            if (distanceSquared <= radiusSquared)
+            {
+                results.Add(item.Entity);
+            }
+        }
     }
 
     public List<Entity> Query(Position center, int radius)
     {
-        var searchRect = new Rectangle(center.X - radius, center.Y - radius, radius * 2, radius * 2);
-        var results = new List<QuadTreeItem>();
-        _qtree.GetObjects(searchRect, results);
-
-        var entities = new List<Entity>(results.Count);
-        foreach (var item in results)
-            entities.Add(item.Entity);
-        return entities;
+        var results = new List<Entity>();
+        Query(center, radius, results);
+        return results;
     }
 }
