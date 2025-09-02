@@ -4,6 +4,10 @@ namespace Simulation.Domain.Components;
 // Tag Components
 public struct Blocking { }
 
+// TODO: No futuro, ser otimizado para apenas enviar snapshots de entidades cuja versão mudou desde a última atualização enviada ao cliente.
+public struct Version { public uint Value; }
+public struct TemplateDirty { }
+
 // Identificadores
 public readonly record struct CharId(int Value);
 public readonly record struct MapId(int Value);

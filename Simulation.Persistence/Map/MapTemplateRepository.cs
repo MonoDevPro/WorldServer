@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
+using Simulation.Application.DTOs;
 using Simulation.Application.Ports.Commons.Persistence;
+using Simulation.Application.Ports.Map;
 using Simulation.Application.Ports.Map.Indexers;
 using Simulation.Domain.Templates;
 using Simulation.Persistence.Commons;
@@ -8,6 +10,7 @@ namespace Simulation.Persistence.Map;
 
 public sealed class MapTemplateRepository(
     IMapTemplateIndex mapTemplateIndex,
+    IMapIntentHandler mapIntentHandler,
     ILogger<MapTemplateRepository> logger)
     : DefaultRepository<int, MapTemplate>(enableReverseLookup: false), IMapTemplateRepository, IInitializable
 {
@@ -28,6 +31,21 @@ public sealed class MapTemplateRepository(
             logger.LogError(ex, "MapTemplateRepository: Initialization failed.");
             throw;
         }
+        
+        // Mandar os mapas pra dentro do ECS.
+        
+        foreach (var map in this.GetAll())
+        {
+            try
+            {
+                mapIntentHandler.HandleIntent(new LoadMapIntent(map.MapId));
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "MapTemplateRepository: Failed to create Map (MapId={MapId}) in ECS.", map.MapId);
+            }
+        }
+        
     }
 
     private void SeedMapTemplates(IMapTemplateIndex index)

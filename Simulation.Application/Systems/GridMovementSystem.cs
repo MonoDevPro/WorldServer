@@ -91,7 +91,7 @@ public sealed partial class GridMovementSystem(
         pos = action.Target;
 
         // Marca a entidade como "suja" para que o SpatialIndexSyncSystem a atualize.
-        World.Add<SpatialDirty>(entity);
+        World.Add<SpatialDirty, TemplateDirty>(entity);
 
         // Remove o componente de ação, permitindo novos movimentos.
         World.Remove<MoveAction>(entity);

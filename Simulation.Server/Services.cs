@@ -68,6 +68,7 @@ public static class Services
         services.AddSingleton<ISystem<float>, LifetimeSystem>();
         services.AddSingleton<ISystem<float>, SpatialIndexSyncSystem>();
         // Publicadores de Estado (Snapshots)
+        services.AddSingleton<ISystem<float>, TemplateSyncSystem>();
         services.AddSingleton<ISystem<float>, MapSnapshotPublisherSystem>();
         services.AddSingleton<ISystem<float>, CharSnapshotPublisherSystem>();
 

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Simulation.Application.Ports.Char.Indexers;
 using Simulation.Application.Ports.Commons.Persistence;
+using Simulation.Domain.Components;
 using Simulation.Domain.Templates;
 using Simulation.Persistence.Commons; // verifique: Common vs Commons
 
@@ -44,8 +45,8 @@ namespace Simulation.Persistence.Char
 
             var chars = new List<CharTemplate>
             {
-                new() { CharId = 1, Name = "Filipe",  MoveSpeed = 1.0f, AttackCastTime = 1.0f, AttackCooldown = 1.0f },
-                new() { CharId = 2, Name = "Rodorfo", MoveSpeed = 1.0f, AttackCastTime = 1.0f, AttackCooldown = 1.0f },
+                new() { CharId = 1, Name = "Filipe", MapId = 1, Position = new Position{ X = 5, Y = 5 }, MoveSpeed = 1.0f, AttackCastTime = 1.0f, AttackCooldown = 1.0f },
+                new() { CharId = 2, Name = "Rodorfo", MapId = 1, Position = new Position{ X = 8, Y = 8 }, MoveSpeed = 1.0f, AttackCastTime = 1.0f, AttackCooldown = 1.0f },
             };
 
             foreach (var ch in chars)

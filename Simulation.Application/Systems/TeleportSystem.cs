@@ -4,7 +4,6 @@ using Arch.System;
 using Arch.System.SourceGenerator;
 using Microsoft.Extensions.Logging;
 using Simulation.Application.DTOs;
-using Simulation.Application.Ports.Char;
 using Simulation.Application.Ports.Char.Indexers;
 using Simulation.Application.Ports.Map;
 using Simulation.Application.Ports.Map.Indexers;
@@ -27,8 +26,8 @@ public sealed partial class TeleportSystem(
     private readonly List<Entity> _queryResults = new(16);
 
     [Query]
-    [All<TeleportIntent, MapId, Position, CharId>]
-    private void Process(in Entity entity, ref TeleportIntent intent, ref Position pos, in MapId mapId, in CharId charId)
+    [All<TeleportIntent, MapId, Position, CharId, Version>]
+    private void Process(in Entity entity, ref TeleportIntent intent, ref Position pos, in MapId mapId, in CharId charId, ref Version version)
     {
         var targetPos = intent.TargetPos;
         var targetMapId = intent.TargetMapId;
@@ -45,6 +44,7 @@ public sealed partial class TeleportSystem(
         {
             // O teleporte é válido, aplica as mudanças
             pos = targetPos;
+            version.Value++; // Incremente a versão aqui
             
             // Se o mapa mudou, atualiza o componente MapId na entidade
             if (mapId.Value != targetMapId)
@@ -53,7 +53,7 @@ public sealed partial class TeleportSystem(
             }
 
             // Marca a entidade como "suja" para que o índice espacial seja atualizado
-            World.Add<SpatialDirty>(entity);
+            World.Add<SpatialDirty, TemplateDirty>(entity);
 
             // Envia um snapshot para notificar os clientes sobre o teleporte
             var snapshot = new TeleportSnapshot(charId.Value, World.Get<MapId>(entity).Value, pos);

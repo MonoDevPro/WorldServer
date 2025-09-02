@@ -6,4 +6,4 @@ namespace Simulation.Application.Ports.Char.Indexers;
 /// <summary>
 /// Define um serviço para mapear CharTemplateIds (int) para CharTemplates.
 /// </summary>
-public interface ICharTemplateIndex : IIndex<int, CharTemplate>{}
+public interface ICharTemplateIndex : IIndex<int, CharTemplate>, IReverseIndex<int, CharTemplate> { }

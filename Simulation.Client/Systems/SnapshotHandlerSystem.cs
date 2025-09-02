@@ -59,7 +59,10 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
             _logger.LogInformation("Processando ExitSnapshot para CharId {CharId}", ex.CharId);
             if (_charIdToEntity.TryGetValue(ex.CharId, out var entity))
             {
-                _cmd.Destroy(entity);
+                // Verificação crucial: garante que a entidade ainda está viva antes de destruí-la
+                if (World.IsAlive(entity))
+                    _cmd.Destroy(entity);
+                
                 _charIdToEntity.TryRemove(ex.CharId, out _);
             }
         }
@@ -70,7 +73,11 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
                 mv.CharId, $"({mv.OldPosition.X},{mv.OldPosition.Y})", $"({mv.NewPosition.X},{mv.NewPosition.Y})");
             if (_charIdToEntity.TryGetValue(mv.CharId, out var entity))
             {
-                _cmd.Set(entity, mv.NewPosition);
+                // Verificação crucial
+                if (World.IsAlive(entity))
+                {
+                    _cmd.Set(entity, mv.NewPosition);
+                }
             }
         }
 
@@ -78,9 +85,7 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
         {
             _logger.LogInformation("Processando AttackSnapshot para CharId {CharId}", atk.CharId);
             if (_charIdToEntity.ContainsKey(atk.CharId))
-            {
                 _logger.LogInformation("Personagem {CharId} executou um ataque", atk.CharId);
-            }
         }
 
         while (_teleportQueue.TryDequeue(out var tp))
@@ -89,8 +94,12 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
                 tp.CharId, tp.Position.X, tp.Position.Y, tp.MapId);
             if (_charIdToEntity.TryGetValue(tp.CharId, out var entity))
             {
-                _cmd.Set(entity, tp.Position);
-                _cmd.Set(entity, new MapId(tp.MapId));
+                // Verificação crucial
+                if (World.IsAlive(entity))
+                {
+                    _cmd.Set(entity, tp.Position);
+                    _cmd.Set(entity, new MapId(tp.MapId));
+                }
             }
         }
 

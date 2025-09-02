@@ -1,5 +1,7 @@
+using Arch.Core;
 using Simulation.Application.Ports.Char;
 using Simulation.Application.Ports.Char.Indexers;
+using Simulation.Application.Ports.Commons.Indexers;
 using Simulation.Persistence.Commons;
 
 namespace Simulation.Persistence.Char;
@@ -10,5 +12,4 @@ namespace Simulation.Persistence.Char;
 /// </summary>
 public class CharIndex : EntityIndex<int>, ICharIndex
 {
-    // tudo herdado — existe para registrar um binding de interface no DI
 }

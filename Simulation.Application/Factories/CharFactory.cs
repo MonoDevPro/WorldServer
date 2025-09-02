@@ -17,7 +17,8 @@ public static class CharFactory
         Component<Direction>.ComponentType, 
         Component<MoveStats>.ComponentType, 
         Component<AttackStats>.ComponentType,
-        Component<Blocking>.ComponentType
+        Component<Blocking>.ComponentType,
+        Component<Version>.ComponentType
     };
     private static readonly Signature CharacterSignature = SignatureBuilder.Create(CharacterArchetype);
     
@@ -39,6 +40,7 @@ public static class CharFactory
             Cooldown = tpl.AttackCooldown
         });
         cmd.Set(entity, new Blocking());
+        cmd.Set(entity, new Version { Value = 0 }); // Inicia a versão em 0
     }
     
     // 3. MÉTODOS PÚBLICOS REATORADOS (MAIS LIMPOS E SEM REPETIÇÃO)
@@ -56,10 +58,10 @@ public static class CharFactory
 
         return entity;
     }
-
-    public static CharTemplate CreateCharTemplate(World world, in Entity entity)
+    
+    public static CharTemplate UpdateCharTemplate(World world, in Entity entity, CharTemplate tpl)
     {
-        // Directly get references and build the new template
+        // Atualiza o template existente com os dados atuais da entidade
         ref var cid = ref world.Get<CharId>(entity);
         ref var mid = ref world.Get<MapId>(entity);
         ref var pos = ref world.Get<Position>(entity);
@@ -67,15 +69,20 @@ public static class CharFactory
         ref var mv = ref world.Get<MoveStats>(entity);
         ref var atk = ref world.Get<AttackStats>(entity);
 
-        return new CharTemplate
-        {
-            CharId = cid.Value,
-            MapId = mid.Value,
-            Position = pos,
-            Direction = dir,
-            MoveSpeed = mv.Speed,
-            AttackCastTime = atk.CastTime,
-            AttackCooldown = atk.Cooldown,
-        };
+        tpl.CharId = cid.Value;
+        tpl.MapId = mid.Value;
+        tpl.Position = pos;
+        tpl.Direction = dir;
+        tpl.MoveSpeed = mv.Speed;
+        tpl.AttackCastTime = atk.CastTime;
+        tpl.AttackCooldown = atk.Cooldown;
+
+        return tpl;
+    }
+
+    public static CharTemplate CreateCharTemplate(World world, in Entity entity)
+    {
+        var template = new CharTemplate();
+        return UpdateCharTemplate(world, entity, template);
     }
 }
