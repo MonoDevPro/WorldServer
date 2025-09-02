@@ -37,13 +37,13 @@ namespace Simulation.Application.Systems
             World.Add(entity, attackAction);
             
             // 2. Dispara um evento para a rede, notificando que o ataque começou.
-            var attackSnapshot = new AttackSnapshot(cmd.AttackerCharId);
+            var attackSnapshot = new AttackSnapshot(cmd.CharId);
             EventBus.Send(in attackSnapshot);
             
             // 3. Remove o componente de intenção, pois já foi processado.
             World.Remove<AttackIntent>(entity);
         
-            logger.LogInformation("CharId {id} iniciou um ataque.", cmd.AttackerCharId);
+            logger.LogInformation("CharId {id} iniciou um ataque.", cmd.CharId);
         }
     
         /// <summary>

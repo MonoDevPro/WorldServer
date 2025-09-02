@@ -105,7 +105,7 @@ public class InputManager
                     return;
                 }
 
-                _intentSender.SendIntent(new AttackIntentPacket { AttackerCharId = _currentCharId });
+                _intentSender.SendIntent(new AttackIntentPacket { CharId = _currentCharId });
                 _logger.LogInformation("Enviado AttackIntent para CharId {CharId}", _currentCharId);
                 Console.WriteLine($"Personagem {_currentCharId} está atacando!");
                 break;

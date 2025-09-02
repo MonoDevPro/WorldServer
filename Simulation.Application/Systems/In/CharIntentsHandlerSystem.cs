@@ -7,6 +7,7 @@ using Simulation.Application.DTOs;
 using Simulation.Application.Factories;
 using Simulation.Application.Ports.Char;
 using Simulation.Application.Ports.Char.Indexers;
+using Simulation.Domain.Components;
 using Simulation.Domain.Templates;
 
 namespace Simulation.Application.Systems.In;
@@ -21,6 +22,7 @@ public class CharIntentsHandlerSystem : BaseSystem<World, float>, ICharIntentHan
     private readonly ILogger<CharIntentsHandlerSystem> _logger;
     private readonly ICharIndex _charIndex;
     private readonly ICharTemplateIndex _charTemplateIndex;
+    private readonly ICharTemplateRepository _charTemplateRepository;
     private readonly CommandBuffer _cmd = new(256);
 
     // Usamos ConcurrentQueue para garantir que a rede possa enfileirar intents
@@ -31,12 +33,16 @@ public class CharIntentsHandlerSystem : BaseSystem<World, float>, ICharIntentHan
     private readonly ConcurrentQueue<AttackIntent> _attackQueue = new();
     private readonly ConcurrentQueue<TeleportIntent> _teleportQueue = new();
 
-    public CharIntentsHandlerSystem(World world, ILogger<CharIntentsHandlerSystem> logger, ICharIndex charIndex, ICharTemplateIndex charTemplateIndex) 
+    public CharIntentsHandlerSystem(World world, ILogger<CharIntentsHandlerSystem> logger, 
+        ICharIndex charIndex, 
+        ICharTemplateIndex charTemplateIndex,
+        ICharTemplateRepository charTemplateRepository)
         : base(world)
     {
         _logger = logger;
         _charIndex = charIndex;
         _charTemplateIndex = charTemplateIndex;
+        _charTemplateRepository = charTemplateRepository;
     }
 
     // --- Implementação da Interface IIntentHandler (Porta de Entrada) ---
@@ -72,11 +78,36 @@ public class CharIntentsHandlerSystem : BaseSystem<World, float>, ICharIntentHan
                 _logger.LogWarning("CharId {id} já está no jogo. EnterIntent ignorado.", intent.CharId);
                 continue;
             }
-
-            // 1. Pega os dados base do personagem
-            if (!_charTemplateIndex.TryGet(intent.CharId, out var template) || template == null)
+            
+            if (!_charTemplateRepository.TryGet(intent.CharId, out var existing) || existing == null)
             {
-                _logger.LogWarning("Template para CharId {id} não encontrado.", intent.CharId);
+                // Cria um template padrão se não existir
+                var ch = new CharTemplate
+                {
+                    CharId = intent.CharId,
+                    MapId = 1,
+                    Name = $"Player{intent.CharId}",
+                    Position = new Position { X = 5, Y = 5 },
+                    Direction = new Direction { X = 0, Y = 1 },
+                    Gender = Gender.Male,
+                    Vocation = Vocation.Mage,
+                    AttackCastTime = 1f,
+                    AttackCooldown = 2f,
+                    MoveSpeed = 1f,
+                };
+                _charTemplateRepository.Add(ch.CharId, ch);
+                _charTemplateIndex.Register(ch.CharId, ch);
+                _logger.LogInformation("SeedChars: Criado novo CharTemplate para CharId={CharId}, Name={Name}", ch.CharId, ch.Name);
+            }
+            else
+            {
+                _logger.LogDebug("SeedChars: ICharTemplateIndex already had CharId={CharId}; skipping register.", intent.CharId);
+                _charTemplateIndex.Register(existing.CharId, existing); // Ensure it's registered
+            }
+            // Load CharTemplate from repository
+            if (!_charTemplateIndex.TryGet(intent.CharId, out var template) || template is null)
+            {
+                _logger.LogError("CharTemplate para CharId {id} não encontrado no repositório. EnterIntent ignorado.", intent.CharId);
                 continue;
             }
 
@@ -116,7 +147,7 @@ public class CharIntentsHandlerSystem : BaseSystem<World, float>, ICharIntentHan
     {
         while (_attackQueue.TryDequeue(out var intent))
         {
-            if (_charIndex.TryGet(intent.AttackerCharId, out var entity))
+            if (_charIndex.TryGet(intent.CharId, out var entity))
             {
                 // Adiciona o componente de ação de ataque
                 _cmd.Add(entity, intent);

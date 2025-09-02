@@ -158,29 +158,35 @@ public sealed class LiteNetServer : INetEventListener, ICharSnapshotPublisher
             _charIntentHandler.HandleIntent(intent.ToDTO());
         });
 
-        // Delega a validação para um método genérico
-        _packetProcessor.SubscribeNetSerializable<MoveIntentPacket, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, intent.CharId));
-        _packetProcessor.SubscribeNetSerializable<AttackIntentPacket, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, intent.AttackerCharId));
-        _packetProcessor.SubscribeNetSerializable<TeleportIntentPacket, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, intent.CharId));
-        _packetProcessor.SubscribeNetSerializable<ExitIntentPacket, NetPeer>((intent, peer) => HandleAuthenticatedIntent(intent, peer, intent.CharId, true));
-    }
-
-    private void HandleAuthenticatedIntent<T>(in T intent, NetPeer peer, int intentCharId, bool isExit = false) where T : struct
-    {
-        if (!TryValidatePeer(peer, intentCharId)) return;
-
-        // Passa o intent para o ECS
-        if (intent is EnterIntentPacket enter) _charIntentHandler.HandleIntent(enter.ToDTO());
-        else if (intent is ExitIntentPacket exit) _charIntentHandler.HandleIntent(exit.ToDTO());
-        else if (intent is MoveIntentPacket move) _charIntentHandler.HandleIntent(move.ToDTO());
-        else if (intent is AttackIntentPacket attack) _charIntentHandler.HandleIntent(attack.ToDTO());
-        else if (intent is TeleportIntentPacket teleport) _charIntentHandler.HandleIntent(teleport.ToDTO());
-
-        // Se for uma intenção de saída, desassocia o peer
-        if (isExit)
+        // Registra os outros intents, garantindo que o peer está autenticado
+        _packetProcessor.SubscribeNetSerializable<MoveIntentPacket, NetPeer>((intent, peer) =>
         {
-            UnmapPeer(peer);
-        }
+            if (!TryValidatePeer(peer, intent.CharId))
+                return;
+            _charIntentHandler.HandleIntent(intent.ToDTO());
+        });
+        
+        _packetProcessor.SubscribeNetSerializable<AttackIntentPacket, NetPeer>((intent, peer) =>
+        {
+            if (!TryValidatePeer(peer, intent.CharId))
+                return;
+            _charIntentHandler.HandleIntent(intent.ToDTO());
+        });
+        
+        _packetProcessor.SubscribeNetSerializable<TeleportIntentPacket, NetPeer>((intent, peer) =>
+        {
+            if (!TryValidatePeer(peer, intent.CharId))
+                return;
+            _charIntentHandler.HandleIntent(intent.ToDTO());
+        });
+        
+        _packetProcessor.SubscribeNetSerializable<ExitIntentPacket, NetPeer>((intent, peer) =>
+        {
+            if (!TryValidatePeer(peer, intent.CharId))
+                return;
+            _charIntentHandler.HandleIntent(intent.ToDTO());
+            UnmapPeer(peer); // Desassocia o peer ao processar o ExitIntent
+        });
     }
     
     private bool TryValidatePeer(NetPeer peer, int expectedCharId)
@@ -202,9 +208,7 @@ public sealed class LiteNetServer : INetEventListener, ICharSnapshotPublisher
     {
         UnmapPeer(peer); // Garante que o peer não está associado a nenhum CharId antigo
         if (_charIdToPeer.TryGetValue(charId, out var oldPeer))
-        {
             UnmapPeer(oldPeer); // Garante que o CharId não está associado a nenhum peer antigo (ex: reconexão)
-        }
         
         _peerToCharId[peer] = charId;
         _charIdToPeer[charId] = peer;

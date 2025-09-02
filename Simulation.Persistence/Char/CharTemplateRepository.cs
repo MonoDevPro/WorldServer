@@ -9,14 +9,11 @@ namespace Simulation.Persistence.Char
 {
     public sealed class CharTemplateRepository : DefaultRepository<int, CharTemplate>, ICharTemplateRepository, IInitializable
     {
-        private readonly ICharTemplateIndex _charTemplateIndex;
         private readonly ILogger<CharTemplateRepository> _logger;
 
         public CharTemplateRepository(
-            ICharTemplateIndex charTemplateIndex,
             ILogger<CharTemplateRepository> logger) : base(enableReverseLookup: false)
         {
-            _charTemplateIndex = charTemplateIndex ?? throw new ArgumentNullException(nameof(charTemplateIndex));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -28,7 +25,7 @@ namespace Simulation.Persistence.Char
             try
             {
                 _logger.LogInformation("CharTemplateRepository: Initialization started.");
-                SeedChars(_charTemplateIndex);
+                SeedChars();
                 var total = this.GetAll().Count();
                 _logger.LogInformation("CharTemplateRepository: Initialization completed. Templates seeded: {Count}", total);
             }
@@ -39,7 +36,7 @@ namespace Simulation.Persistence.Char
             }
         }
 
-        private void SeedChars(ICharTemplateIndex charTemplateIndex)
+        private void SeedChars()
         {
             _logger.LogDebug("SeedChars: Starting seed of character templates.");
 
@@ -51,16 +48,6 @@ namespace Simulation.Persistence.Char
 
             foreach (var ch in chars)
             {
-                if (!charTemplateIndex.TryGet(ch.CharId, out var existing))
-                {
-                    charTemplateIndex.Register(ch.CharId, ch);
-                    _logger.LogInformation("SeedChars: Registered CharTemplate in ICharTemplateIndex (CharId={CharId}, Name={Name}).", ch.CharId, ch.Name);
-                }
-                else
-                {
-                    _logger.LogDebug("SeedChars: ICharTemplateIndex already had CharId={CharId}; skipping register.", ch.CharId);
-                }
-
                 if (!this.TryGet(ch.CharId, out var _))
                 {
                     this.Add(ch.CharId, ch);
