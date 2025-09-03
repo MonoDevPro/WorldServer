@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.Concurrent;
 using Simulation.Domain.Templates;
 
@@ -60,5 +61,48 @@ public static class TemplatePool
         if (template == null) return;
         
         Pool.Enqueue(template);
+    }
+}
+
+/// <summary>
+/// Wrapper around ArrayPool for CharTemplate arrays
+/// </summary>
+public static class TemplateArrayPool
+{
+    private static readonly ArrayPool<CharTemplate> Pool = ArrayPool<CharTemplate>.Shared;
+    
+    public static CharTemplate[] Get(int minimumLength)
+    {
+        return Pool.Rent(minimumLength);
+    }
+    
+    public static void Return(CharTemplate[] array)
+    {
+        if (array == null) return;
+        Pool.Return(array, clearArray: true);
+    }
+    
+    /// <summary>
+    /// Creates a new array with exactly the required size from the pooled array
+    /// </summary>
+    public static CharTemplate[] CreateExactArray(List<CharTemplate> templates)
+    {
+        if (templates.Count == 0)
+            return Array.Empty<CharTemplate>();
+            
+        var pooledArray = Get(templates.Count);
+        try
+        {
+            var result = new CharTemplate[templates.Count];
+            for (int i = 0; i < templates.Count; i++)
+            {
+                result[i] = templates[i];
+            }
+            return result;
+        }
+        finally
+        {
+            Return(pooledArray);
+        }
     }
 }

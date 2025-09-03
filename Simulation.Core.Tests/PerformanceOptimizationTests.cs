@@ -3,6 +3,7 @@ using Simulation.Application.Utilities;
 using Simulation.Domain.Templates;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System;
 
 namespace Simulation.Core.Tests;
 
@@ -70,5 +71,40 @@ public class PerformanceOptimizationTests
         // Note: This is a micro-benchmark and actual performance will vary
         Assert.True(sw1.ElapsedTicks <= sw2.ElapsedTicks * 2, 
             $"Pool time: {sw1.ElapsedTicks}, Normal time: {sw2.ElapsedTicks}");
+    }
+    
+    [Fact]
+    public void TemplateArrayPool_ShouldCreateExactSizedArrays()
+    {
+        // Arrange
+        var list = new List<CharTemplate>
+        {
+            new CharTemplate { CharId = 1 },
+            new CharTemplate { CharId = 2 },
+            new CharTemplate { CharId = 3 }
+        };
+        
+        // Act
+        var result = TemplateArrayPool.CreateExactArray(list);
+        
+        // Assert
+        Assert.Equal(3, result.Length);
+        Assert.Equal(1, result[0].CharId);
+        Assert.Equal(2, result[1].CharId);
+        Assert.Equal(3, result[2].CharId);
+    }
+    
+    [Fact]
+    public void TemplateArrayPool_EmptyList_ShouldReturnEmptyArray()
+    {
+        // Arrange
+        var emptyList = new List<CharTemplate>();
+        
+        // Act
+        var result = TemplateArrayPool.CreateExactArray(emptyList);
+        
+        // Assert
+        Assert.Empty(result);
+        Assert.Same(Array.Empty<CharTemplate>(), result);
     }
 }

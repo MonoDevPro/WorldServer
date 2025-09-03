@@ -34,8 +34,8 @@ public sealed partial class PlayerLifecycleSystem(
         var charId = cid.Value;
         
         // 2. Constrói os snapshots necessários usando a factory centralizada
-        // Remove duplicate template collection - SnapshotBuilder will handle it efficiently
-        var enterSnapshot = SnapshotBuilder.CreateEnterSnapshot(World, entity);
+        // Use optimized version that leverages template cache
+        var enterSnapshot = SnapshotBuilder.CreateEnterSnapshotOptimized(World, entity, charTemplateIndex);
         var charSnapshot = SnapshotBuilder.CreateCharSnapshot(World, entity,
             charTemplateIndex.TryGet(charId, out var tmp) ? tmp : null);
         
