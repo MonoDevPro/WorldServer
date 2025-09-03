@@ -13,6 +13,8 @@ O WorldServer é um backend autoritativo para um jogo multiplayer em tempo real,
 * Sistemas de jogo implementados, incluindo movimento baseado em grid, ataques e teleporte.
 * Buscas espaciais eficientes utilizando uma QuadTree para encontrar entidades próximas.
 * Uma camada de rede desacoplada usando **LiteNetLib** para comunicação UDP.
+* **Sistema de monitoramento de performance** integrado para detectar problemas precocemente.
+* **Otimizações de memória** com object pooling para reduzir alocações desnecessárias.
 
 #### 2. Arquitetura Principal
 
@@ -47,10 +49,46 @@ O servidor opera num ciclo contínuo (tick), seguindo um fluxo de dados claro:
 
 #### 5. Como Começar
 
-1.  **Executar o Servidor:** O projeto inicializável é o `Simulation.Console`. Basta executá-lo. Ele irá ler o `appsettings.json` para as configurações de rede e do mundo.
-2.  **Entender o Fluxo:** O melhor ponto de partida para entender o código é o ficheiro `Simulation.Core/SimulationPipeline.cs`. Ele mostra a ordem exata em que toda a lógica do jogo é executada.
+1.  **Executar o Servidor:** O projeto inicializável é o `Simulation.Server`. Basta executá-lo. Ele irá ler o `appsettings.json` para as configurações de rede e do mundo.
+2.  **Entender o Fluxo:** O melhor ponto de partida para entender o código é o ficheiro `Simulation.Application/Services/SimulationRunner.cs`. Ele mostra a ordem exata em que toda a lógica do jogo é executada.
 3.  **Adicionar uma Nova Funcionalidade:** Para adicionar uma nova mecânica de jogo (ex: um sistema de magia):
-    * Defina os novos **componentes** em `Simulation.Core.Abstractions/Commons/Components.cs`.
-    * Defina os **intents** e **snapshots** de rede em `Simulation.Core.Abstractions/Adapters/`.
-    * Crie um novo **sistema** em `Simulation.Core/Systems/` que contenha a lógica.
-    * Registe o novo sistema em `Simulation.Core/Services.cs` e adicione-o à ordem de execução no `Simulation.Core/SimulationPipeline.cs`.
+    * Defina os novos **componentes** em `Simulation.Domain/Components/Components.cs`.
+    * Defina os **intents** e **snapshots** de rede em `Simulation.Application/DTOs/`.
+    * Crie um novo **sistema** em `Simulation.Application/Systems/` que contenha a lógica.
+    * Registe o novo sistema em `Simulation.Server/Services.cs` e adicione-o à ordem de execução.
+
+#### 6. Arquitetura de Segurança e Performance
+
+**Monitoramento de Performance:**
+* O servidor inclui um `PerformanceMonitor` que automaticamente registra métricas de tick duration, GC pressure e uso de memória.
+* Relatórios são gerados a cada 30 segundos para identificar problemas de performance precocemente.
+* Ticks lentos (>20ms) são automaticamente registrados para debugging.
+
+**Segurança de Memória:**
+* **Object Pooling**: As queries espaciais utilizam object pooling para reduzir alocações de `List<>` temporárias.
+* **Buffer Reuse**: A camada de rede reutiliza `NetDataWriter` buffers para evitar alocações desnecessárias.
+* **Entity Lifecycle Safety**: Verificações `World.IsAlive()` previnem o acesso a entidades já destruídas.
+
+**Thread Safety:**
+* Uso de `ConcurrentDictionary` para mapeamentos peer-to-character na camada de rede.
+* Queues concurrent (`ConcurrentQueue`) para processamento thread-safe de snapshots.
+
+#### 7. Testes e Validação
+
+O projeto inclui testes críticos de segurança em `Simulation.Core.Tests`:
+* **QuadTreeSafetyTests**: Valida operações seguras do índice espacial.
+* **EntityLifecycleSafetyTests**: Testa lifecycle de entidades e prevenção de dangling references.
+* **PerformanceMonitorTests**: Valida o sistema de monitoramento de performance.
+
+Para executar os testes:
+```bash
+dotnet test Simulation.Core.Tests
+```
+
+#### 8. Configuração de Performance
+
+Para obter melhor performance em produção:
+* Configure logging level para `Information` ou superior em `appsettings.json`.
+* Use builds `Release` que otimizam performance.
+* Monitore os relatórios de performance para identificar gargalos.
+* Considere ajustar o tick rate em `ServerLoop.cs` conforme necessário (default: 60 TPS).
