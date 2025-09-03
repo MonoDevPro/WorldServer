@@ -4,9 +4,9 @@ using Simulation.Domain.Templates;
 
 namespace Simulation.Networking.DTOs;
 
-public class CharTemplatePacket : INetSerializable
+public struct CharTemplatePacket : INetSerializable
 {
-    public string Name = string.Empty;
+    public string Name;
     public Gender Gender;
     public Vocation Vocation;
     public int CharId;
@@ -16,6 +16,20 @@ public class CharTemplatePacket : INetSerializable
     public float MoveSpeed;
     public float AttackCastTime;
     public float AttackCooldown;
+
+    public CharTemplatePacket()
+    {
+        Name = string.Empty;
+        Gender = default;
+        Vocation = default;
+        CharId = default;
+        MapId = default;
+        Position = default;
+        Direction = default;
+        MoveSpeed = default;
+        AttackCastTime = default;
+        AttackCooldown = default;
+    }
 
     public void FromDTO(in CharTemplate dto)
     {

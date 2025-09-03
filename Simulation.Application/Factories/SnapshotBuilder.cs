@@ -1,5 +1,7 @@
 using Arch.Core;
 using Simulation.Application.DTOs;
+using Simulation.Application.Ports.Char.Indexers;
+using Simulation.Application.Utilities;
 using Simulation.Domain.Components;
 using Simulation.Domain.Templates;
 
@@ -16,15 +18,79 @@ public static class SnapshotBuilder
 
         var mapId = world.Get<MapId>(newEntity).Value;
         var charId = world.Get<CharId>(newEntity).Value;
-        var characterSnapshots = new List<CharTemplate>();
-
-        world.Query(in CharFactory.QueryDescription, (Entity entity, ref MapId mid) =>
+        
+        // If existing templates are provided, use them directly to avoid duplication
+        if (existingTemplates != null)
         {
-            if (mid.Value == mapId)
-                characterSnapshots.Add(CharFactory.CreateCharTemplate(world, entity));
-        });
+            return new EnterSnapshot(mapId: mapId, charId: charId, templates: existingTemplates);
+        }
+        
+        // Use object pool for the character list to reduce allocations
+        var characterSnapshots = ListPool.Get();
+        try
+        {
+            world.Query(in CharFactory.QueryDescription, (Entity entity, ref MapId mid) =>
+            {
+                if (mid.Value == mapId)
+                    characterSnapshots.Add(CharFactory.CreateCharTemplate(world, entity));
+            });
 
-        return new EnterSnapshot(mapId: mapId, charId: charId, templates: characterSnapshots.ToArray());
+            return new EnterSnapshot(mapId: mapId, charId: charId, templates: TemplateArrayPool.CreateExactArray(characterSnapshots));
+        }
+        finally
+        {
+            // Return the list to the pool for reuse
+            ListPool.Return(characterSnapshots);
+        }
+    }
+
+    /// <summary>
+    /// Creates an EnterSnapshot with template index optimization
+    /// </summary>
+    public static EnterSnapshot CreateEnterSnapshotOptimized(World world, Entity newEntity, 
+        ICharTemplateIndex templateIndex)
+    {
+        if (!world.IsAlive(newEntity))
+            throw new ArgumentException("Entity is not alive in the world.", nameof(newEntity));
+        if (!world.Has<MapId>(newEntity) || !world.Has<CharId>(newEntity))
+            throw new ArgumentException("Entity must have MapId and CharId components.", nameof(newEntity));
+
+        var mapId = world.Get<MapId>(newEntity).Value;
+        var charId = world.Get<CharId>(newEntity).Value;
+        
+        // Use object pool for the character list to reduce allocations
+        var characterSnapshots = ListPool.Get();
+        try
+        {
+            world.Query(in CharFactory.QueryDescription, (Entity entity, ref MapId mid) =>
+            {
+                if (mid.Value == mapId)
+                {
+                    var entityCharId = world.Get<CharId>(entity).Value;
+                    
+                    // Try to get cached template first, only create new one if needed
+                    if (templateIndex.TryGet(entityCharId, out var cachedTemplate))
+                    {
+                        // Update cached template with current entity state to ensure freshness
+                        CharFactory.UpdateCharTemplate(world, entity, cachedTemplate);
+                        characterSnapshots.Add(cachedTemplate);
+                    }
+                    else
+                    {
+                        // Create new template if not in cache
+                        var newTemplate = CharFactory.CreateCharTemplate(world, entity);
+                        characterSnapshots.Add(newTemplate);
+                    }
+                }
+            });
+
+            return new EnterSnapshot(mapId: mapId, charId: charId, templates: TemplateArrayPool.CreateExactArray(characterSnapshots));
+        }
+        finally
+        {
+            // Return the list to the pool for reuse
+            ListPool.Return(characterSnapshots);
+        }
     }
 
     public static CharSnapshot CreateCharSnapshot(World world, Entity entity, CharTemplate? existingTemplate = null)
