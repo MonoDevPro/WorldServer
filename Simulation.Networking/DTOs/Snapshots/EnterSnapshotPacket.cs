@@ -22,7 +22,16 @@ public struct EnterSnapshotPacket : INetSerializable
         }
     }
     
-    public EnterSnapshot ToDTO() => new(MapId, CharId, Templates.Select(t => t.ToDTO()).ToArray());
+    public EnterSnapshot ToDTO()
+    {
+        // Use for loop instead of LINQ to avoid allocation
+        var templateArray = new CharTemplate[Templates.Length];
+        for (int i = 0; i < Templates.Length; i++)
+        {
+            templateArray[i] = Templates[i].ToDTO();
+        }
+        return new EnterSnapshot(MapId, CharId, templateArray);
+    }
 
     public void Serialize(NetDataWriter writer)
     {

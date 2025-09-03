@@ -1,5 +1,6 @@
 using Arch.Core;
 using Simulation.Application.DTOs;
+using Simulation.Application.Utilities;
 using Simulation.Domain.Components;
 using Simulation.Domain.Templates;
 
@@ -16,15 +17,24 @@ public static class SnapshotBuilder
 
         var mapId = world.Get<MapId>(newEntity).Value;
         var charId = world.Get<CharId>(newEntity).Value;
-        var characterSnapshots = new List<CharTemplate>();
-
-        world.Query(in CharFactory.QueryDescription, (Entity entity, ref MapId mid) =>
+        
+        // Use object pool for the character list to reduce allocations
+        var characterSnapshots = ListPool.Get();
+        try
         {
-            if (mid.Value == mapId)
-                characterSnapshots.Add(CharFactory.CreateCharTemplate(world, entity));
-        });
+            world.Query(in CharFactory.QueryDescription, (Entity entity, ref MapId mid) =>
+            {
+                if (mid.Value == mapId)
+                    characterSnapshots.Add(CharFactory.CreateCharTemplate(world, entity));
+            });
 
-        return new EnterSnapshot(mapId: mapId, charId: charId, templates: characterSnapshots.ToArray());
+            return new EnterSnapshot(mapId: mapId, charId: charId, templates: characterSnapshots.ToArray());
+        }
+        finally
+        {
+            // Return the list to the pool for reuse
+            ListPool.Return(characterSnapshots);
+        }
     }
 
     public static CharSnapshot CreateCharSnapshot(World world, Entity entity, CharTemplate? existingTemplate = null)

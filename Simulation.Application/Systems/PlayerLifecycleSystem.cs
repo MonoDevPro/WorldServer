@@ -31,24 +31,11 @@ public sealed partial class PlayerLifecycleSystem(
         charIndex.Register(cid.Value, entity);
         spatialIndex.Add(entity, pst);
         
-        var mapId = mid.Value;
         var charId = cid.Value;
-        var templates = new List<CharTemplate>();
-        
-        World.Query(in CharFactory.QueryDescription, (Entity e, ref MapId mid) =>
-        {
-            if (mid.Value == mapId)
-            {
-                var template = charTemplateIndex.TryGet(World.Get<CharId>(e).Value, out var existingTemplate)
-                    ? existingTemplate
-                    : null;
-                template ??= CharFactory.CreateCharTemplate(World, e);
-                templates.Add(template);
-            }
-        });
         
         // 2. Constrói os snapshots necessários usando a factory centralizada
-        var enterSnapshot = SnapshotBuilder.CreateEnterSnapshot(World, entity, templates.ToArray());
+        // Remove duplicate template collection - SnapshotBuilder will handle it efficiently
+        var enterSnapshot = SnapshotBuilder.CreateEnterSnapshot(World, entity);
         var charSnapshot = SnapshotBuilder.CreateCharSnapshot(World, entity,
             charTemplateIndex.TryGet(charId, out var tmp) ? tmp : null);
         
