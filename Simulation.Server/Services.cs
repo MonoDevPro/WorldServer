@@ -40,6 +40,7 @@ public static class Services
         services.AddSimulationNetwork(configuration);
 
         // Registra os serviços específicos da aplicação Console
+        services.AddSingleton<PerformanceMonitor>();
         services.AddSingleton<ServerLoop>();
         
         

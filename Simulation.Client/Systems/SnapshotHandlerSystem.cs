@@ -178,7 +178,9 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
     {
         foreach (var entity in _charIdToEntity.Values)
         {
-            _cmd.Destroy(entity);
+            // Adicione esta verificação para prevenir a dupla destruição
+            if (World.IsAlive(entity))
+                _cmd.Destroy(entity);
         }
         _charIdToEntity.Clear();
         _logger.LogInformation("Todas as entidades de personagens foram removidas");

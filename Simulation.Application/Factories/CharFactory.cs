@@ -1,5 +1,6 @@
 using Arch.Buffer;
 using Arch.Core;
+using Simulation.Application.Utilities;
 using Simulation.Domain.Components;
 using Simulation.Domain.Templates;
 
@@ -82,7 +83,15 @@ public static class CharFactory
 
     public static CharTemplate CreateCharTemplate(World world, in Entity entity)
     {
-        var template = new CharTemplate();
+        var template = TemplatePool.Get();
         return UpdateCharTemplate(world, entity, template);
+    }
+    
+    /// <summary>
+    /// Returns a template to the pool for reuse. Call this when the template is no longer needed.
+    /// </summary>
+    public static void ReturnTemplate(CharTemplate template)
+    {
+        TemplatePool.Return(template);
     }
 }

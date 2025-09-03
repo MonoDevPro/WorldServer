@@ -16,15 +16,18 @@ public class ServerLoop : IAsyncDisposable
     private readonly ILogger<ServerLoop> _logger;
     private readonly SimulationRunner _simulationRunner;
     private readonly LiteNetServer _networkServer;
+    private readonly PerformanceMonitor? _performanceMonitor;
 
     public ServerLoop(
         ILogger<ServerLoop> logger,
         SimulationRunner simulationRunner,
-        LiteNetServer networkServer)
+        LiteNetServer networkServer,
+        PerformanceMonitor? performanceMonitor = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _simulationRunner = simulationRunner ?? throw new ArgumentNullException(nameof(simulationRunner));
         _networkServer = networkServer ?? throw new ArgumentNullException(nameof(networkServer));
+        _performanceMonitor = performanceMonitor;
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -82,10 +85,15 @@ public class ServerLoop : IAsyncDisposable
                     finally
                     {
                         sw.Stop();
-                        if (sw.Elapsed.TotalSeconds > TickSeconds)
+                        var tickDurationMs = sw.Elapsed.TotalMilliseconds;
+                        
+                        // Relatório de performance
+                        _performanceMonitor?.RecordTick(tickDurationMs);
+                        
+                        if (tickDurationMs > TickSeconds * 1000)
                         {
                             _logger.LogWarning("Simulation tick took longer than tick interval: {ElapsedMs} ms (tick {TickMs} ms).",
-                                sw.Elapsed.TotalMilliseconds, TickSeconds * 1000);
+                                tickDurationMs, TickSeconds * 1000);
                         }
                     }
 
@@ -154,6 +162,16 @@ public class ServerLoop : IAsyncDisposable
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error while disposing SimulationRunner.");
+        }
+
+        // Dispose performance monitor
+        try
+        {
+            _performanceMonitor?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error while disposing PerformanceMonitor.");
         }
 
         _mainTimer.Stop();
