@@ -115,28 +115,25 @@ public class ServerLoop : IAsyncDisposable
         }
     }
 
-    private async Task SleepUntilNextTick(double accumulator, CancellationToken cancellationToken)
+    private Task SleepUntilNextTick(double accumulator, CancellationToken cancellationToken)
     {
         var remainingTime = TickSeconds - accumulator;
         if (remainingTime <= 0)
         {
-            await Task.Yield(); // Estamos atrasados, cede o controle do thread brevemente.
-            return;
+            // Estamos atrasados — devolve uma tarefa "rápida" que cede o thread.
+            // Usamos Task.Delay(0, ct) para forçar um yield assíncrono sem criar state machine aqui.
+            return Task.Delay(0, cancellationToken);
         }
 
         var delayMilliseconds = (int)(remainingTime * 1000);
         if (delayMilliseconds > 1)
         {
-            try
-            {
-                await Task.Delay(delayMilliseconds - 1, cancellationToken);
-            }
-            catch (TaskCanceledException) { /* Ignora, o cancelamento será tratado no loop principal. */ }
+            // Retorna diretamente o Task da API — sem await/async aqui para evitar criar state machine.
+            return Task.Delay(delayMilliseconds - 1, cancellationToken);
         }
-        else
-        {
-            await Task.Yield(); // Para esperas muito curtas, Task.Yield é mais apropriado.
-        }
+
+        // Espera muito curta — usar um delay 0 para ceder.
+        return Task.Delay(0, cancellationToken);
     }
 
     public ValueTask DisposeAsync()
