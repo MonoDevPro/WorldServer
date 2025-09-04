@@ -1,9 +1,9 @@
 using Xunit;
-using Simulation.Application.Utilities;
 using Simulation.Domain.Templates;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System;
+using Simulation.Core.Tests.Utilities;
 
 namespace Simulation.Core.Tests;
 

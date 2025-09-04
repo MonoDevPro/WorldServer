@@ -1,8 +1,10 @@
+using System;
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using Simulation.Domain.Templates;
 
-namespace Simulation.Application.Utilities;
+namespace Simulation.Core.Tests.Utilities;
 
 /// <summary>
 /// Simple object pool for List&lt;CharTemplate&gt; to reduce GC pressure
@@ -22,8 +24,6 @@ public static class ListPool
     
     public static void Return(List<CharTemplate> list)
     {
-        if (list == null) return;
-        
         list.Clear();
         Pool.Enqueue(list);
     }
@@ -58,8 +58,6 @@ public static class TemplatePool
     
     public static void Return(CharTemplate template)
     {
-        if (template == null) return;
-        
         Pool.Enqueue(template);
     }
 }
@@ -78,7 +76,6 @@ public static class TemplateArrayPool
     
     public static void Return(CharTemplate[] array)
     {
-        if (array == null) return;
         Pool.Return(array, clearArray: true);
     }
     
@@ -88,7 +85,7 @@ public static class TemplateArrayPool
     public static CharTemplate[] CreateExactArray(List<CharTemplate> templates)
     {
         if (templates.Count == 0)
-            return Array.Empty<CharTemplate>();
+            return [];
             
         var pooledArray = Get(templates.Count);
         try

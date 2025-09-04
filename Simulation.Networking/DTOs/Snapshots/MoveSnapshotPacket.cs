@@ -13,8 +13,8 @@ public struct MoveSnapshotPacket : INetSerializable
     public void FromDTO(in MoveSnapshot dto)
     {
         CharId = dto.CharId;
-        OldPosition = dto.OldPosition;
-        NewPosition = dto.NewPosition;
+        OldPosition = dto.OldPos;
+        NewPosition = dto.NewPos;
     }
 
     public MoveSnapshot ToDTO() => new(CharId, OldPosition, NewPosition);

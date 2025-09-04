@@ -12,13 +12,13 @@ public struct EnterSnapshotPacket : INetSerializable
 
     public void FromDTO(in EnterSnapshot dto)
     {
-        MapId = dto.mapId;
-        CharId = dto.charId;
-        Templates = new CharTemplatePacket[dto.templates.Length];
-        for (int i = 0; i < dto.templates.Length; i++)
+        MapId = dto.MapId;
+        CharId = dto.CharId;
+        Templates = new CharTemplatePacket[dto.Templates.Length];
+        for (int i = 0; i < dto.Templates.Length; i++)
         {
             Templates[i] = new CharTemplatePacket();
-            Templates[i].FromDTO(dto.templates[i]);
+            Templates[i].FromDTO(dto.Templates[i]);
         }
     }
     

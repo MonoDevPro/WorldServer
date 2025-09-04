@@ -1,10 +1,9 @@
-using System.Collections.Concurrent;
+/*using System.Collections.Concurrent;
 using Arch.Buffer;
 using Arch.Core;
 using Arch.System;
 using Microsoft.Extensions.Logging;
 using Simulation.Application.DTOs;
-using Simulation.Application.Factories;
 using Simulation.Client.Core;
 using Simulation.Domain.Components;
 using Simulation.Domain.Templates;
@@ -41,8 +40,8 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
         // Consome snapshots enfileirados pela thread de rede e agenda mudanças no CommandBuffer
         while (_enterQueue.TryDequeue(out var e))
         {
-            _logger.LogInformation("Processando EnterSnapshot para CharId {CharId} no MapId {MapId}", e.charId, e.mapId);
-            foreach (var template in e.templates)
+            _logger.LogInformation("Processando EnterSnapshot para CharId {CharId} no MapId {MapId}", e.CharId, e.MapId);
+            foreach (var template in e.Templates)
             {
                 CreateCharacterEntity(template);
             }
@@ -70,13 +69,13 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
         while (_moveQueue.TryDequeue(out var mv))
         {
             _logger.LogTrace("Processando MoveSnapshot para CharId {CharId}: {OldPos} -> {NewPos}",
-                mv.CharId, $"({mv.OldPosition.X},{mv.OldPosition.Y})", $"({mv.NewPosition.X},{mv.NewPosition.Y})");
+                mv.CharId, $"({mv.OldPos.X},{mv.OldPos.Y})", $"({mv.NewPos.X},{mv.NewPos.Y})");
             if (_charIdToEntity.TryGetValue(mv.CharId, out var entity))
             {
                 // Verificação crucial
                 if (World.IsAlive(entity))
                 {
-                    _cmd.Set(entity, mv.NewPosition);
+                    _cmd.Set(entity, mv.NewPos);
                 }
             }
         }
@@ -185,4 +184,4 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
         _charIdToEntity.Clear();
         _logger.LogInformation("Todas as entidades de personagens foram removidas");
     }
-}
+}*/

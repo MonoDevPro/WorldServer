@@ -38,7 +38,6 @@ public static class ServicesPersistenceExtensions
         
         // Personagens
         services.AddSingleton<ICharIndex, CharIndex>();                             // Índice de Personagens (CharId -> Entity)
-        services.AddSingleton<ICharTemplateIndex, CharTemplateIndex>();             // Repositório de Templates ativos
         services.AddSingleton<CharTemplateRepository>();   // Repositório de Templates banco em memória (simulando um banco de dados)
         services.AddSingleton<ICharTemplateRepository>(provider => provider.GetRequiredService<CharTemplateRepository>());
         services.AddSingleton<IInitializable>(provider => provider.GetRequiredService<CharTemplateRepository>());

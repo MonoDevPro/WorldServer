@@ -29,8 +29,8 @@ public sealed partial class TeleportSystem(
     [All<TeleportIntent, MapId, Position, CharId, Version>]
     private void Process(in Entity entity, ref TeleportIntent intent, ref Position pos, in MapId mapId, in CharId charId, ref Version version)
     {
-        var targetPos = intent.TargetPos;
-        var targetMapId = intent.TargetMapId;
+        var targetPos = intent.Pos;
+        var targetMapId = intent.MapId;
 
         // Valida o movimento antes de aplicá-lo
         if (IsTeleportInvalid(entity, targetMapId, targetPos))
@@ -44,7 +44,6 @@ public sealed partial class TeleportSystem(
         {
             // O teleporte é válido, aplica as mudanças
             pos = targetPos;
-            version.Value++; // Incremente a versão aqui
             
             // Se o mapa mudou, atualiza o componente MapId na entidade
             if (mapId.Value != targetMapId)
@@ -53,7 +52,7 @@ public sealed partial class TeleportSystem(
             }
 
             // Marca a entidade como "suja" para que o índice espacial seja atualizado
-            World.Add<SpatialDirty, TemplateDirty>(entity);
+            World.Add<SpatialDirty>(entity);
 
             // Envia um snapshot para notificar os clientes sobre o teleporte
             var snapshot = new TeleportSnapshot(charId.Value, World.Get<MapId>(entity).Value, pos);
