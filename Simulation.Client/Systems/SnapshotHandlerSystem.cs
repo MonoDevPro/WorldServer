@@ -1,4 +1,4 @@
-/*using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Arch.Buffer;
 using Arch.Core;
 using Arch.System;
@@ -7,6 +7,7 @@ using Simulation.Application.DTOs;
 using Simulation.Client.Core;
 using Simulation.Domain.Components;
 using Simulation.Domain.Templates;
+using Simulation.Factories;
 
 namespace Simulation.Client.Systems;
 
@@ -30,9 +31,13 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
     private readonly ConcurrentQueue<AttackSnapshot> _attackQueue = new();
     private readonly ConcurrentQueue<TeleportSnapshot> _teleportQueue = new();
 
+    // Factory para criar entidades de personagens
+    private readonly Simulation.Factories.CharFactory _charFactory;
+
     public SnapshotHandlerSystem(World world, ILogger<SnapshotHandlerSystem> logger) : base(world)
     {
         _logger = logger;
+        _charFactory = new Simulation.Factories.CharFactory(_cmd);
     }
 
     public override void Update(in float delta)
@@ -145,8 +150,8 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
             return;
         }
 
-        // Cria nova entidade para o personagem usando a mesma factory do servidor
-        var entity = CharFactory.CreateEntity(_cmd, template);
+        // Cria nova entidade para o personagem usando a factory
+        var entity = _charFactory.Create(template);
 
         _charIdToEntity[template.CharId] = entity;
         
@@ -184,4 +189,4 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
         _charIdToEntity.Clear();
         _logger.LogInformation("Todas as entidades de personagens foram removidas");
     }
-}*/
+}

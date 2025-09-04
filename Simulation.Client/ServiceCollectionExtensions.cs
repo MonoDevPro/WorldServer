@@ -1,4 +1,4 @@
-/*using Arch.Core;
+using Arch.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Simulation.Application.Options;
@@ -33,4 +33,4 @@ public static class ServiceCollectionExtensions
         
         return services;
     }
-}*/
+}

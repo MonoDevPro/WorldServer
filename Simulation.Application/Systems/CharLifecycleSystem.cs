@@ -87,7 +87,11 @@ public sealed partial class CharLifecycleSystem(
             // CORREÇÃO CRÍTICA: Copia os dados da lista para o array.
             templates.CopyTo(charArray, 0);
 
-            EventBus.Send(new EnterSnapshot(mapId, charId, charArray));
+            // CORREÇÃO CRÍTICA: Cria uma cópia dos dados para o EventBus, não o array poolado
+            var copyArray = new CharTemplate[templates.Count];
+            Array.Copy(charArray, copyArray, templates.Count);
+
+            EventBus.Send(new EnterSnapshot(mapId, charId, copyArray));
         }
         finally
         {
