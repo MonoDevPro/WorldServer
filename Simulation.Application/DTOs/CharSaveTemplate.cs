@@ -16,17 +16,14 @@ public class CharSaveTemplate : IResetable
     public MoveStats MoveStats { get; set; }
     public AttackStats AttackStats { get; set; }
     
-    public CharSaveTemplate Populate(CharId charId, MapId mapId, Position position, Direction direction, MoveStats moveStats, AttackStats attackStats)
+    public void Populate(CharId charId, MapId mapId, Position position, Direction direction, MoveStats moveStats, AttackStats attackStats)
     {
-        return new CharSaveTemplate
-        {
-            CharId = charId,
-            MapId = mapId,
-            Position = position,
-            Direction = direction,
-            MoveStats = moveStats,
-            AttackStats = attackStats
-        };
+        this.CharId = charId;
+        this.MapId = mapId;
+        this.Position = position;
+        this.Direction = direction;
+        this.MoveStats = moveStats;
+        this.AttackStats = attackStats;
     }
     
     public void Reset()

@@ -87,9 +87,7 @@ public sealed partial class CharLifecycleSystem(
             // CORREÇÃO CRÍTICA: Copia os dados da lista para o array.
             templates.CopyTo(charArray, 0);
 
-            // Usa uma fatia (Span) para representar os dados relevantes e cria o array final a partir dela.
-            var snapshotDataSpan = new ReadOnlySpan<CharTemplate>(charArray, 0, templates.Count);
-            EventBus.Send(new EnterSnapshot(mapId, charId, snapshotDataSpan.ToArray()));
+            EventBus.Send(new EnterSnapshot(mapId, charId, charArray));
         }
         finally
         {
