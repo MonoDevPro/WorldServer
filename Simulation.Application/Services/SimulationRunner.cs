@@ -23,6 +23,6 @@ public class SimulationRunner : BaseSystem<World, float>
 
     public override void Update(in float deltaTime)
     {
-        _systems.Tick(World, in deltaTime);
+        _systems.Tick(World, in deltaTime, CancellationToken.None);
     }
 }

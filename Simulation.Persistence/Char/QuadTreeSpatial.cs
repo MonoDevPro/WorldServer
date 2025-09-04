@@ -54,7 +54,11 @@ public class QuadTreeSpatial : ISpatialIndex
         {
             // A forma mais segura de atualizar é remover e adicionar novamente
             _qtree.Remove(item);
-            item.Rect = new Rectangle(newPosition.X, newPosition.Y, 1, 1);
+            // Reuse existing Rectangle instead of allocating new one
+            var rect = item.Rect;
+            rect.X = newPosition.X;
+            rect.Y = newPosition.Y;
+            item.Rect = rect;
             _qtree.Add(item);
         }
     }
@@ -85,22 +89,21 @@ public class QuadTreeSpatial : ISpatialIndex
         
         // Usa object pooling para ambas as listas
         var itemResults = GetPooledItemList();
-        var entityResults = GetPooledEntityList();
         
         try
         {
             _qtree.GetObjects(searchRect, itemResults);
             
+            // Create the result list with capacity to avoid resizing
+            var entityResults = new List<Entity>(itemResults.Count);
             foreach (var item in itemResults)
                 entityResults.Add(item.Entity);
                 
-            // Retorna uma nova lista para evitar problemas de ownership
-            return new List<Entity>(entityResults);
+            return entityResults;
         }
         finally
         {
             ReturnPooledItemList(itemResults);
-            ReturnPooledEntityList(entityResults);
         }
     }
     

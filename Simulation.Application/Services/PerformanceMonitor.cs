@@ -48,8 +48,8 @@ public class PerformanceMonitor : IDisposable
                 // Log imediato para ticks muito lentos
                 if (tickDurationMs > 50.0)
                 {
-                    _logger.LogWarning("Tick muito lento detectado: {TickDuration}ms (target: 16.67ms)", 
-                        tickDurationMs.ToString("F2"));
+                    _logger.LogWarning("Tick muito lento detectado: {TickDuration:F2}ms (target: 16.67ms)", 
+                        tickDurationMs);
                 }
             }
         }
@@ -87,13 +87,13 @@ public class PerformanceMonitor : IDisposable
 
                 _logger.LogInformation(
                     "Performance Report - " +
-                    "Avg Tick: {AvgTick}ms, " +
-                    "Slow Ticks: {SlowTickPerc}%, " +
-                    "Memory: {MemoryMB}MB, " +
+                    "Avg Tick: {AvgTick:F2}ms, " +
+                    "Slow Ticks: {SlowTickPerc:F1}%, " +
+                    "Memory: {MemoryMB:F1}MB, " +
                     "GC: Gen0={Gen0} Gen1={Gen1} Gen2={Gen2}",
-                    avgTickTime.ToString("F2"),
-                    slowTickPercentage.ToString("F1"),
-                    totalMemoryMB.ToString("F1"),
+                    avgTickTime,
+                    slowTickPercentage,
+                    totalMemoryMB,
                     gen0Collections,
                     gen1Collections,
                     gen2Collections);
@@ -101,8 +101,8 @@ public class PerformanceMonitor : IDisposable
                 // Alerta se performance está ruim
                 if (slowTickPercentage > 10.0)
                 {
-                    _logger.LogWarning("Alta percentagem de ticks lentos: {SlowTickPerc}% - Possível problema de performance", 
-                        slowTickPercentage.ToString("F1"));
+                    _logger.LogWarning("Alta percentagem de ticks lentos: {SlowTickPerc:F1}% - Possível problema de performance", 
+                        slowTickPercentage);
                 }
 
                 if (gen2Collections > 0)

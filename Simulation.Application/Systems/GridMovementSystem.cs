@@ -8,6 +8,7 @@ using Simulation.Application.Ports.Map;
 using Simulation.Application.Ports.Map.Indexers;
 using Simulation.Domain.Components;
 using Simulation.Domain.Helpers;
+using System.Collections.Concurrent;
 
 namespace Simulation.Application.Systems;
 
@@ -21,7 +22,8 @@ public sealed partial class GridMovementSystem(
     ILogger<GridMovementSystem> logger)
     : BaseSystem<World, float>(world)
 {
-    private readonly List<Entity> _queryResults = new();
+    // Object pool para reduzir alocações em queries de alta frequência
+    private static readonly ConcurrentQueue<List<Entity>> _queryResultsPool = new();
 
     /// <summary>
     /// Processa a intenção de mover, iniciando a ação de movimento.
@@ -117,18 +119,45 @@ public sealed partial class GridMovementSystem(
             return true; // Bloqueado por terreno estático.
         }
         
-        _queryResults.Clear();
-        spatialIndex.Query(target, 0, _queryResults); // Raio 0 para buscar apenas no tile exato.
-
-        foreach(var otherEntity in _queryResults)
+        // Use pooled list to reduce allocations
+        var queryResults = GetPooledQueryResults();
+        try
         {
-            if (otherEntity == entity) continue; // Não colide consigo mesmo.
-            if (World.Has<Blocking>(otherEntity))
-            {
-                return true; // Bloqueado por outra entidade.
-            }
-        }
+            spatialIndex.Query(target, 0, queryResults); // Raio 0 para buscar apenas no tile exato.
 
-        return false;
+            foreach(var otherEntity in queryResults)
+            {
+                if (otherEntity == entity) continue; // Não colide consigo mesmo.
+                if (World.Has<Blocking>(otherEntity))
+                {
+                    return true; // Bloqueado por outra entidade.
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            ReturnPooledQueryResults(queryResults);
+        }
+    }
+    
+    private static List<Entity> GetPooledQueryResults()
+    {
+        if (_queryResultsPool.TryDequeue(out var list))
+        {
+            list.Clear();
+            return list;
+        }
+        return new List<Entity>();
+    }
+    
+    private static void ReturnPooledQueryResults(List<Entity> list)
+    {
+        if (list != null && _queryResultsPool.Count < 20) // Limita o pool
+        {
+            list.Clear();
+            _queryResultsPool.Enqueue(list);
+        }
     }
 }
