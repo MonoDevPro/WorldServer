@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Simulation.Application\Simulation.Application.csproj" />
     <ProjectReference Include="..\Simulation.Domain\Simulation.Domain.csproj" />
+    <ProjectReference Include="..\Simulation.Factories\Simulation.Factories.csproj" />
     <ProjectReference Include="..\Simulation.Networking\Simulation.Networking.csproj" />
   </ItemGroup>
 </Project>
