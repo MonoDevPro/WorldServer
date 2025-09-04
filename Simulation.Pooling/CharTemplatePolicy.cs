@@ -8,24 +8,32 @@ namespace Simulation.Pooling;
 /// A responsabilidade desta política é resetar um CharTemplate para um
 /// estado limpo e previsível quando ele é devolvido ao pool.
 /// </summary>
-public class CharTemplatePolicy : IPooledObjectPolicy<CharTemplate>
+/// <summary>
+/// Pooled policy para CharTemplate — reseta o objeto ao retorná-lo.
+/// </summary>
+public sealed class CharTemplatePooledPolicy : PooledObjectPolicy<CharTemplate>
 {
-    public CharTemplate Create() => new();
+    public override CharTemplate Create() => new CharTemplate();
 
-    public bool Return(CharTemplate template)
+    public override bool Return(CharTemplate obj)
     {
-        // Reseta manualmente todos os campos para seus valores padrão.
-        template.Name = string.Empty;
-        template.Gender = Gender.None;
-        template.Vocation = Vocation.None;
-        template.CharId = 0;
-        template.MapId = 0;
-        template.Position = default;
-        template.Direction = default;
-        template.MoveSpeed = 0f;
-        template.AttackCastTime = 0f;
-        template.AttackCooldown = 0f;
-        
+        Reset(obj);
         return true;
+    }
+
+    private static void Reset(CharTemplate t)
+    {
+        // Ajuste aqui de acordo com as propriedades reais de CharTemplate.
+        // Exemplo conforme seu snippet original:
+        t.Name = string.Empty;
+        t.Gender = default;
+        t.Vocation = default;
+        t.CharId = default;
+        t.MapId = default;
+        t.Position = default;
+        t.Direction = default;
+        t.MoveSpeed = default;
+        t.AttackCastTime = default;
+        t.AttackCooldown = default;
     }
 }

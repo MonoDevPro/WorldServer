@@ -8,7 +8,7 @@ public sealed class ProcessIntentsSystem(World world, CommandBuffer buffer) : Ba
 {
     public override void Update(in float t)
     {
-        buffer.Playback(World, dispose: false);
-        base.Update(t);
+        buffer.Playback(World, dispose: true);
+        //base.Update(t);
     }
 }

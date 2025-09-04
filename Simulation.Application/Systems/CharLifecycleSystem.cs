@@ -14,10 +14,7 @@ namespace Simulation.Application.Systems;
 public sealed partial class CharLifecycleSystem(
     World world,
     ICharFactory charFactory,
-    IObjectPool<CharTemplate> charTemplatePool,
-    IObjectPool<CharSaveTemplate> charSaveDataPool,
-    IObjectPool<List<CharTemplate>> charListPool,
-    IArrayPool<CharTemplate> charArrayPool,
+    IPoolsService pools,
     ILogger<CharLifecycleSystem> logger)
     : BaseSystem<World, float>(world: world)
 {
@@ -50,24 +47,9 @@ public sealed partial class CharLifecycleSystem(
         logger.LogInformation("Despawned CharId {CharId} (Entity {EntityId})", intent.CharId, e.Id);
     }
     
-    /*private void SendSaveDataSnapshot(int mapId, int charId, Entity e)
-    {
-        var charSaveData = charSaveDataPool.Get();
-        try
-        {
-            charFactory.UpdateFromRuntime(charSaveData, e, World); // atualiza o template com o estado final da entidade
-            EventBus.Send(charSaveData); // dados persistentes
-        }
-        finally
-        {
-            // CORREÇÃO: Garante que o objeto seja devolvido mesmo em caso de erro.
-            charSaveDataPool.Return(charSaveData); 
-        }
-    }*/
-
     private void SendEnterSnapshot(int mapId, int charId, Entity newEntity)
     {
-        var templates = charListPool.Get();
+        var templates = pools.RentList();
         var charArray = default(CharTemplate[]); // Declara fora do try para ser acessível no finally
         try
         {
@@ -75,45 +57,37 @@ public sealed partial class CharLifecycleSystem(
             {
                 if (otherMid.Value == mapId && otherEntity != newEntity)
                 {
-                    var template = charTemplatePool.Get();
+                    var template = pools.RentTemplate();
                     charFactory.UpdateFromRuntime(template, otherEntity, World);
                     templates.Add(template);
                 }
             });
 
             // Aluga o array para enviar os dados
-            charArray = charArrayPool.Rent(templates.Count);
+            charArray = pools.RentArray(templates.Count);
             
-            // CORREÇÃO CRÍTICA: Copia os dados da lista para o array.
             templates.CopyTo(charArray, 0);
 
             // CORREÇÃO CRÍTICA: Cria uma cópia dos dados para o EventBus, não o array poolado
-            var copyArray = new CharTemplate[templates.Count];
-            Array.Copy(charArray, copyArray, templates.Count);
-
-            EventBus.Send(new EnterSnapshot(mapId, charId, copyArray));
+            EventBus.Send(new EnterSnapshot(mapId, charId, charArray));
         }
         finally
         {
-            // Devolve os CharTemplates individuais para o pool
             foreach (var template in templates)
             {
-                charTemplatePool.Return(template);
+                pools.ReturnTemplate(template);
             }
-            
-            // Limpa e devolve a lista
-            templates.Clear();
-            charListPool.Return(templates);
-            
-            // CORREÇÃO: Devolve o array alugado dentro do finally.
-            if(charArray is not null)
-                charArrayPool.Return(charArray);
+            pools.ReturnList(templates);
+            if (charArray != null)
+            {
+                pools.ReturnArray(charArray);
+            }
         }
     }
 
     private void SendCharSnapshot(int mapId, int charId, Entity entity)
     {
-        var template = charTemplatePool.Get();
+        var template = pools.RentTemplate();
         try
         {
             charFactory.UpdateFromRuntime(template, entity, World);
@@ -121,14 +95,13 @@ public sealed partial class CharLifecycleSystem(
         }
         finally
         {
-            // CORREÇÃO: Garante que o objeto seja devolvido mesmo em caso de erro.
-            charTemplatePool.Return(template);
+            pools.ReturnTemplate(template);
         }
     }
 
     private void SendExitSnapshot(int mapId, int charId, Entity entity)
     {
-        var template = charTemplatePool.Get();
+        var template = pools.RentTemplate();
         try
         {
             charFactory.UpdateFromRuntime(template, entity, World);
@@ -137,7 +110,7 @@ public sealed partial class CharLifecycleSystem(
         finally
         {
             // CORREÇÃO: Garante que o objeto seja devolvido mesmo em caso de erro.
-            charTemplatePool.Return(template);
+            pools.ReturnTemplate(template);
         }
     }
 }

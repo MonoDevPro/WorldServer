@@ -7,7 +7,7 @@ namespace Simulation.Application.DTOs;
 /// Representa o estado completo de um personagem a ser salvo no banco de dados.
 /// Combina dados de base (Template) com o estado atual (Componentes).
 /// </summary>
-public class CharSaveTemplate : IResetable
+public class CharSaveTemplate
 {
     public CharId CharId { get; set; }
     public MapId MapId { get; set; }
@@ -24,15 +24,5 @@ public class CharSaveTemplate : IResetable
         this.Direction = direction;
         this.MoveStats = moveStats;
         this.AttackStats = attackStats;
-    }
-    
-    public void Reset()
-    {
-        CharId = default;
-        MapId = default;
-        Position = default;
-        Direction = default;
-        MoveStats = default;
-        AttackStats = default;
     }
 }

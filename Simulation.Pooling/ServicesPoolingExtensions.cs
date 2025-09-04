@@ -1,3 +1,4 @@
+using System.Buffers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.ObjectPool;
 using Simulation.Application.DTOs;
@@ -13,64 +14,40 @@ public static class ServicesPoolingExtensions
     /// </summary>
     public static IServiceCollection AddPoolingServices(this IServiceCollection services)
     {
-        // --- Registro de Políticas ---
-        // 1. Registra a política genérica para objetos que implementam IResetable.
-        services.AddSingleton(typeof(IPooledObjectPolicy<>), typeof(ResetableObjectPolicy<>));
-
-        // 2. Registra a política específica para CharTemplate, pois ele não é IResetable.
-        services.AddSingleton<IPooledObjectPolicy<CharTemplate>, CharTemplatePolicy>();
-
-        // --- Registro de Pools de Objeto (IObjectPool<T>) ---
-        // 3. Usa o método auxiliar para os tipos que são IResetable.
-        services.AddPoolFor<CharSaveTemplate>();
+        // (opcional) registrar uma facade que usa estes pools (ver seção 3)
+        services.AddSingleton<IPoolsService, PoolsService>();
         
-        // 4. Usa o método auxiliar para pools de List<T>.
-        services.AddPoolForList<CharTemplate>();
-
-        // 5. Registro manual para IObjectPool<CharTemplate> usando sua política específica.
-        services.AddSingleton<ObjectPool<CharTemplate>>(provider =>
-        {
-            var policy = provider.GetRequiredService<IPooledObjectPolicy<CharTemplate>>();
-            return new DefaultObjectPool<CharTemplate>(policy);
-        });
-        services.AddSingleton<IObjectPool<CharTemplate>, MicrosoftObjectPoolAdapter<CharTemplate>>();
-
-        // --- Registro de Pools de Array (IArrayPool<T>) ---
-        // 6. Registra o adaptador genérico para IArrayPool<T>.
-        services.AddSingleton(typeof(IArrayPool<>), typeof(DefaultArrayPoolAdapter<>));
+        // provider padrão para criar ObjectPool<T>
+        services.AddSingleton<ObjectPoolProvider, DefaultObjectPoolProvider>();
         
-        return services;
-    }
-
-    /// <summary>
-    /// Método de extensão genérico que registra as dependências para um pool de objetos
-    /// que implementam IResetable.
-    /// </summary>
-    private static IServiceCollection AddPoolFor<T>(this IServiceCollection services) 
-        where T : class, IResetable, new()
-    {
-        services.AddSingleton<ObjectPool<T>>(provider =>
+        // pool para List<CharTemplate>
+        services.AddSingleton<ObjectPool<List<CharTemplate>>>(sp =>
         {
-            var policy = provider.GetRequiredService<IPooledObjectPolicy<T>>();
-            return new DefaultObjectPool<T>(policy);
+            var provider = sp.GetRequiredService<ObjectPoolProvider>();
+            var policy = new PooledListPolicy<CharTemplate>(maxAllowedCapacity: 2048);
+            // você pode ajustar maximumRetained via DefaultObjectPool<T> ctor se desejar
+            return provider.Create(policy);
         });
-        services.AddSingleton<IObjectPool<T>, MicrosoftObjectPoolAdapter<T>>();
-        return services;
-    }
-    
-    /// <summary>
-    /// Método de extensão genérico que registra as dependências para um pool de objetos List<T>.
-    /// </summary>
-    private static IServiceCollection AddPoolForList<T>(this IServiceCollection services)
-    {
-        services.AddSingleton<ObjectPool<List<T>>>(provider =>
+        
+        // pool para CharTemplate
+        services.AddSingleton<ObjectPool<CharTemplate>>(sp =>
         {
-            // (CORREÇÃO) Cria a política diretamente, pois ela não tem dependências.
-            // Isso evita o registro DI complexo e o erro de compilação.
-            var policy = new ListClearPolicy<T>();
-            return new DefaultObjectPool<List<T>>(policy);
+            var provider = sp.GetRequiredService<ObjectPoolProvider>();
+            var policy = new CharTemplatePooledPolicy();
+            return provider.Create(policy);
         });
-        services.AddSingleton<IObjectPool<List<T>>, MicrosoftObjectPoolAdapter<List<T>>>();
+        
+        // pool para CharTemplate
+        services.AddSingleton<ObjectPool<CharSaveTemplate>>(sp =>
+        {
+            var provider = sp.GetRequiredService<ObjectPoolProvider>();
+            var policy = new CharSaveTemplatePooledPolicy();
+            return provider.Create(policy);
+        });
+        
+        // ArrayPool é singleton compartilhado
+        services.AddSingleton<ArrayPool<CharTemplate>>(sp => ArrayPool<CharTemplate>.Shared);
+        
         return services;
     }
 }

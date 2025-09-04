@@ -14,7 +14,7 @@ namespace Simulation.Application.Systems;
 /// </summary>
 public sealed partial class CharSaveSystem(
     World world,
-    IObjectPool<CharSaveTemplate> pool,
+    IPoolsService pools,
     ILogger<CharSaveSystem> logger)
     : BaseSystem<World, float>(world)
 {
@@ -23,8 +23,8 @@ public sealed partial class CharSaveSystem(
     [All<CharId, MapId, Position, Direction, MoveStats, AttackStats>]
     private void SaveDispatcher(in Entity entity, in CharId cid, in MapId mid, in Position pos, in Direction dir, in MoveStats mv, in AttackStats atk)
     {
-        
-        var tpl = pool.Get();
+
+        var tpl = pools.RentCharSaveTemplate();
         try
         {
             tpl.Populate(cid, mid, pos, dir, mv, atk);
@@ -37,7 +37,7 @@ public sealed partial class CharSaveSystem(
         }
         finally
         {
-            pool.Return(tpl);
+            pools.ReturnCharSaveTemplate(tpl);
         }
     }
 }

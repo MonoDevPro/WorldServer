@@ -1,8 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Simulation.Application.Ports.Char.Indexers;
 using Simulation.Application.Ports.Commons.Persistence;
-using Simulation.Application.Ports.Map.Indexers;
 using Simulation.Networking;
 using Simulation.Server;
 
