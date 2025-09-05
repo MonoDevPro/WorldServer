@@ -29,6 +29,7 @@ public sealed class IntentForwarding : ICharIntentHandler, IMapIntentHandler
         LoggerMessage.Define<int>(LogLevel.Warning, new EventId(2, nameof(LogCharAlreadyPresent)),
             "CharId {CharId} já está no jogo. EnterIntent ignorado.");
 
+    // Test
     public IntentForwarding(
         DoubleBufferedCommandBuffer buffer,
         ICharIndex charIndex,
