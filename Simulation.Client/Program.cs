@@ -1,4 +1,13 @@
-using Microsoft.Extensions.Configuration;
+using System;
+
+Console.WriteLine("Hello, World!");
+
+
+
+
+
+
+/*using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Simulation.Client.Core;
@@ -70,4 +79,4 @@ class Program
             networkClient.Dispose();
         }
     }
-}
+}*/

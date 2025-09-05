@@ -24,6 +24,7 @@ public sealed class MapTemplateRepository(
             SeedMapTemplates();
             var total = this.GetAll().Count();
             logger.LogInformation("MapTemplateRepository: Initialization completed. Templates seeded: {Count}", total);
+            
         }
         catch (Exception ex)
         {

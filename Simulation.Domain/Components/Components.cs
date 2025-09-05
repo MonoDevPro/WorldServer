@@ -25,6 +25,3 @@ public struct MoveAction { public Position Start,Target; public float Elapsed, D
 // Ataque
 public struct AttackStats { public float CastTime; public float Cooldown; }
 public struct AttackAction { public float Duration, Remaining, Cooldown, CooldownRemaining; }
-
-// Input
-public struct Input { public int X,Y; }

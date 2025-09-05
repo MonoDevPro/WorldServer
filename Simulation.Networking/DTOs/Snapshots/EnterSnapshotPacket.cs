@@ -18,7 +18,7 @@ public struct EnterSnapshotPacket : INetSerializable
         for (int i = 0; i < dto.templates.Length; i++)
         {
             Templates[i] = new CharTemplatePacket();
-            Templates[i].FromDTO(dto.templates[i]);
+            Templates[i].FromDTO(dto.Templates[i]);
         }
     }
     

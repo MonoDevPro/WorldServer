@@ -13,4 +13,3 @@ public interface ICharSnapshotPublisher : IDisposable
     
     // Persistant data
     public void Publish(CharSaveTemplate snapshot);
-}

@@ -4,9 +4,7 @@ using Arch.System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Simulation.Application.Factories;
 using Simulation.Application.Options;
-using Simulation.Application.Ports;
 using Simulation.Application.Ports.Char;
 using Simulation.Application.Ports.Map;
 using Simulation.Application.Services;
@@ -50,7 +48,8 @@ public static class Services
         
         // --- Núcleo do ECS ---
         // Registra o World como um singleton. Cada sistema receberá a mesma instância.
-        services.AddSingleton<World>(provider => WorldFactory.Create());
+        services.AddSingleton<World>(provider => WorldFactory.Create(
+            provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<WorldOptions>>().Value));
         
         services.AddSingleton<IntentForwarding>();
         services.AddSingleton<ICharIntentHandler>(sp => sp.GetRequiredService<IntentForwarding>());
@@ -58,6 +57,7 @@ public static class Services
         
         // --- Sistemas da Simulação ---
         // A ordem de registro deve ser respeitada, pois define a ordem de execução no pipeline.
+        
         // Intenções de Entrada
         services.AddSingleton<ISystem<float>, ProcessIntentsSystem>();
         // Lógica de Jogo
@@ -69,7 +69,6 @@ public static class Services
         services.AddSingleton<ISystem<float>, LifetimeSystem>();
         services.AddSingleton<ISystem<float>, SpatialIndexSyncSystem>();
         services.AddSingleton<ISystem<float>, SnapshotForwarding>();
-
         // --- Pipeline e Runner ---
         // O SimulationPipeline irá injetar todos os sistemas registrados acima na ordem correta.
         services.AddSingleton<SimulationPipeline>();

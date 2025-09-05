@@ -33,9 +33,13 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
     private readonly ConcurrentQueue<AttackSnapshot> _attackQueue = new();
     private readonly ConcurrentQueue<TeleportSnapshot> _teleportQueue = new();
 
+    // Factory para criar entidades de personagens
+    private readonly Simulation.Factories.CharFactory _charFactory;
+
     public SnapshotHandlerSystem(World world, ILogger<SnapshotHandlerSystem> logger) : base(world)
     {
         _logger = logger;
+        _charFactory = new Simulation.Factories.CharFactory(_cmd);
     }
 
     public override void Update(in float delta)

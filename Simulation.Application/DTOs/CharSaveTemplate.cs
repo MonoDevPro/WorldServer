@@ -6,10 +6,6 @@ namespace Simulation.Application.DTOs;
 /// Representa o estado completo de um personagem a ser salvo no banco de dados.
 /// Combina dados de base (Template) com o estado atual (Componentes).
 /// </summary>
-/// <summary>
-/// Representa o estado completo de um personagem a ser salvo no banco de dados.
-/// Combina dados de base (Template) com o estado atual (Componentes).
-/// </summary>
 public class CharSaveTemplate
 {
     public CharId CharId { get; set; }

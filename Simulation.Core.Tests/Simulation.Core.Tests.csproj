@@ -18,8 +18,10 @@
   <ItemGroup>
     <ProjectReference Include="..\Simulation.Application\Simulation.Application.csproj" />
     <ProjectReference Include="..\Simulation.Domain\Simulation.Domain.csproj" />
+    <ProjectReference Include="..\Simulation.Factories\Simulation.Factories.csproj" />
     <ProjectReference Include="..\Simulation.Networking\Simulation.Networking.csproj" />
     <ProjectReference Include="..\Simulation.Persistence\Simulation.Persistence.csproj" />
+    <ProjectReference Include="..\Simulation.Pooling\Simulation.Pooling.csproj" />
     <ProjectReference Include="..\Simulation.Client\Simulation.Client.csproj" />
   </ItemGroup>
   

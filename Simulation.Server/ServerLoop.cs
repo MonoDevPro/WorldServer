@@ -77,6 +77,7 @@ public class ServerLoop : IAsyncDisposable
                 }
 
                 // --- Simulação (fixed ticks) ---
+                var sw = Stopwatch.StartNew();
                 while (accumulator >= TickSeconds && !cancellationToken.IsCancellationRequested)
                 {
                     sw.Restart();

@@ -68,7 +68,6 @@ public sealed partial class CharLifecycleSystem(
             charArray = poolsService.RentArray(templates.Count);
             var snapshotDataSpan = CollectionsMarshal.AsSpan(templates);
             snapshotDataSpan.CopyTo(charArray);
-            
             EventBus.Send(new EnterSnapshot(mapId, charId, charArray));
         }
         finally
