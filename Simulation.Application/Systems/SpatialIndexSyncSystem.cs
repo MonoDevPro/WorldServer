@@ -2,6 +2,7 @@ using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
 using Simulation.Application.Ports.Map;
+using Simulation.Application.Ports.Map.Indexers;
 using Simulation.Domain.Components;
 
 namespace Simulation.Application.Systems;

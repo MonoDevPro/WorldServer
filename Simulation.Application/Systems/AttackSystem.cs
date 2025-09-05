@@ -5,6 +5,7 @@ using Arch.System.SourceGenerator;
 using Microsoft.Extensions.Logging;
 using Simulation.Application.DTOs;
 using Simulation.Application.Ports.Map;
+using Simulation.Application.Ports.Map.Indexers;
 using Simulation.Domain.Components;
 
 namespace Simulation.Application.Systems

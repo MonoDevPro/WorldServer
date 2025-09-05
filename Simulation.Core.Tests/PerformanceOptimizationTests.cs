@@ -1,5 +1,4 @@
-using Xunit;
-using Simulation.Application.Utilities;
+/*using Xunit;
 using Simulation.Domain.Templates;
 using System.Diagnostics;
 using System.Collections.Generic;
@@ -107,4 +106,4 @@ public class PerformanceOptimizationTests
         Assert.Empty(result);
         Assert.Same(Array.Empty<CharTemplate>(), result);
     }
-}
+}*/

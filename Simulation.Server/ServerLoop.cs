@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
-using Simulation.Application.Ports.Map;
 using Simulation.Application.Services;
 using Simulation.Networking;
 
@@ -17,6 +16,18 @@ public class ServerLoop : IAsyncDisposable
     private readonly SimulationRunner _simulationRunner;
     private readonly LiteNetServer _networkServer;
     private readonly PerformanceMonitor? _performanceMonitor;
+
+    // Precompiled logging delegates to avoid allocating object[] and boxing on each log call.
+    private static readonly Action<ILogger, Exception?> LogPollEventsError =
+        LoggerMessage.Define(LogLevel.Error, new EventId(1, nameof(LogPollEventsError)), "Exception while polling network events.");
+
+    private static readonly Action<ILogger, Exception?> LogSimulationUpdateError =
+        LoggerMessage.Define(LogLevel.Error, new EventId(2, nameof(LogSimulationUpdateError)), "Error during SimulationRunner.Update.");
+
+    private static readonly Action<ILogger, double, double, Exception?> LogTickTooLong =
+        LoggerMessage.Define<double, double>(LogLevel.Warning,
+            new EventId(3, nameof(LogTickTooLong)),
+            "Simulation tick took longer than tick interval: {ElapsedMs} ms (tick {TickMs} ms).");
 
     public ServerLoop(
         ILogger<ServerLoop> logger,
@@ -40,6 +51,7 @@ public class ServerLoop : IAsyncDisposable
 
         double accumulator = 0.0;
         double lastTime = _mainTimer.Elapsed.TotalSeconds;
+        var sw = new Stopwatch(); // reutilizado por tick — evita StartNew() por iteração
 
         try
         {
@@ -60,14 +72,14 @@ public class ServerLoop : IAsyncDisposable
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Exception while polling network events.");
-                    // Continue: normalmente quer manter loop vivo mesmo se rede falhar brevemente
+                    // Usa delegate pré-compilado (sem object[] allocation)
+                    LogPollEventsError(_logger, ex);
                 }
 
                 // --- Simulação (fixed ticks) ---
                 while (accumulator >= TickSeconds && !cancellationToken.IsCancellationRequested)
                 {
-                    var sw = Stopwatch.StartNew();
+                    sw.Restart();
                     try
                     {
                         _simulationRunner.Update((float)TickSeconds);
@@ -79,21 +91,19 @@ public class ServerLoop : IAsyncDisposable
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error during SimulationRunner.Update.");
-                        // decide se quer abortar totalmente (throw) ou apenas logar e continuar.
+                        LogSimulationUpdateError(_logger, ex);
                     }
                     finally
                     {
                         sw.Stop();
                         var tickDurationMs = sw.Elapsed.TotalMilliseconds;
-                        
-                        // Relatório de performance
+
+                        // Relatório de performance (não aloca aqui)
                         _performanceMonitor?.RecordTick(tickDurationMs);
-                        
+
                         if (tickDurationMs > TickSeconds * 1000)
                         {
-                            _logger.LogWarning("Simulation tick took longer than tick interval: {ElapsedMs} ms (tick {TickMs} ms).",
-                                tickDurationMs, TickSeconds * 1000);
+                            LogTickTooLong(_logger, tickDurationMs, TickSeconds * 1000, null);
                         }
                     }
 
@@ -101,7 +111,16 @@ public class ServerLoop : IAsyncDisposable
                 }
 
                 // --- Sleep / yield strategy ---
-                await SleepUntilNextTick(accumulator, cancellationToken).ConfigureAwait(false);
+                if (accumulator <= 0)
+                {
+                    // Estamos atrasados — forçar yield para evitar busy-spin.
+                    // Task.Yield() não aloca Task e é a forma adequada de ceder o thread aqui.
+                    await Task.Yield();
+                }
+                else
+                {
+                    await SleepUntilNextTick(accumulator, cancellationToken).ConfigureAwait(false);
+                }
             }
         }
         catch (OperationCanceledException)
@@ -117,23 +136,24 @@ public class ServerLoop : IAsyncDisposable
 
     private Task SleepUntilNextTick(double accumulator, CancellationToken cancellationToken)
     {
+        // remainingTime só é usado quando chegamos aqui com accumulator > 0 e accumulator < TickSeconds.
         var remainingTime = TickSeconds - accumulator;
         if (remainingTime <= 0)
         {
-            // Estamos atrasados — devolve uma tarefa "rápida" que cede o thread.
-            // Usamos Task.Delay(0, ct) para forçar um yield assíncrono sem criar state machine aqui.
-            return Task.Delay(0, cancellationToken);
+            // Caso raro: não precisamos dormir; devolvemos CompletedTask (sem alocação).
+            return Task.CompletedTask;
         }
 
         var delayMilliseconds = (int)(remainingTime * 1000);
         if (delayMilliseconds > 1)
         {
-            // Retorna diretamente o Task da API — sem await/async aqui para evitar criar state machine.
+            // Retorna diretamente o Task da API — cria timer apenas quando realmente for dormir.
             return Task.Delay(delayMilliseconds - 1, cancellationToken);
         }
 
-        // Espera muito curta — usar um delay 0 para ceder.
-        return Task.Delay(0, cancellationToken);
+        // Para esperas muito curtas preferimos não criar timer; devolvemos CompletedTask.
+        // Observação: o chamador pode escolher fazer Task.Yield() para forçar yield quando necessário.
+        return Task.CompletedTask;
     }
 
     public ValueTask DisposeAsync()

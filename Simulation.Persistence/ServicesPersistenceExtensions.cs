@@ -28,17 +28,15 @@ public static class ServicesPersistenceExtensions
             return new QuadTreeSpatial(options.MinX, options.MinY, options.Width, options.Height);
         });
         
-        
         // Mapas
         services.AddSingleton<IMapIndex, MapIndex>();                               // Índice de Mapas (MapId -> MapService)
-        services.AddSingleton<IMapTemplateIndex, MapTemplateIndex>();               // Repositório de Templates ativos
+        services.AddSingleton<IMapServiceIndex, SpatialMapIndex>();                               // Índice de Mapas (MapId -> MapService)
         services.AddSingleton<MapTemplateRepository>();     // Repositório de Templates banco em memória (simulando um banco de dados)
         services.AddSingleton<IMapTemplateRepository>(provider => provider.GetRequiredService<MapTemplateRepository>());
         services.AddSingleton<IInitializable>(provider => provider.GetRequiredService<MapTemplateRepository>());
         
         // Personagens
         services.AddSingleton<ICharIndex, CharIndex>();                             // Índice de Personagens (CharId -> Entity)
-        services.AddSingleton<ICharTemplateIndex, CharTemplateIndex>();             // Repositório de Templates ativos
         services.AddSingleton<CharTemplateRepository>();   // Repositório de Templates banco em memória (simulando um banco de dados)
         services.AddSingleton<ICharTemplateRepository>(provider => provider.GetRequiredService<CharTemplateRepository>());
         services.AddSingleton<IInitializable>(provider => provider.GetRequiredService<CharTemplateRepository>());

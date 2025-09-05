@@ -9,7 +9,6 @@ using Simulation.Persistence.Commons;
 namespace Simulation.Persistence.Map;
 
 public sealed class MapTemplateRepository(
-    IMapTemplateIndex mapTemplateIndex,
     IMapIntentHandler mapIntentHandler,
     ILogger<MapTemplateRepository> logger)
     : DefaultRepository<int, MapTemplate>(enableReverseLookup: false), IMapTemplateRepository, IInitializable
@@ -22,7 +21,7 @@ public sealed class MapTemplateRepository(
         try
         {
             logger.LogInformation("MapTemplateRepository: Initialization started.");
-            SeedMapTemplates(mapTemplateIndex);
+            SeedMapTemplates();
             var total = this.GetAll().Count();
             logger.LogInformation("MapTemplateRepository: Initialization completed. Templates seeded: {Count}", total);
         }
@@ -38,7 +37,7 @@ public sealed class MapTemplateRepository(
         {
             try
             {
-                mapIntentHandler.HandleIntent(new LoadMapIntent(map.MapId));
+                mapIntentHandler.HandleIntent(new LoadMapIntent(map.MapId), map);
             }
             catch (Exception ex)
             {
@@ -48,7 +47,7 @@ public sealed class MapTemplateRepository(
         
     }
 
-    private void SeedMapTemplates(IMapTemplateIndex index)
+    private void SeedMapTemplates()
     {
         logger.LogDebug("SeedMapTemplates: Starting seed of map templates.");
 
@@ -82,16 +81,6 @@ public sealed class MapTemplateRepository(
 
         foreach (var map in maps)
         {
-            if (!index.TryGet(map.MapId, out var existing))
-            {
-                index.Register(map.MapId, map);
-                logger.LogInformation("SeedMapTemplates: Registered MapTemplate in IMapTemplateIndex (MapId={MapId}, Name={Name}).", map.MapId, map.Name);
-            }
-            else
-            {
-                logger.LogDebug("SeedMapTemplates: IMapTemplateIndex already had MapId={MapId}; skipping register.", map.MapId);
-            }
-
             if (!this.TryGet(map.MapId, out var _))
             {
                 this.Add(map.MapId, map);

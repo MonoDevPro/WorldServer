@@ -16,7 +16,7 @@ namespace Simulation.Application.Systems;
 /// </summary>
 public sealed partial class GridMovementSystem(
     World world,
-    IMapIndex mapIndex,
+    IMapServiceIndex mapServiceIndex,
     ISpatialIndex spatialIndex,
     ILogger<GridMovementSystem> logger)
     : BaseSystem<World, float>(world)
@@ -91,7 +91,7 @@ public sealed partial class GridMovementSystem(
         pos = action.Target;
 
         // Marca a entidade como "suja" para que o SpatialIndexSyncSystem a atualize.
-        World.Add<SpatialDirty, TemplateDirty>(entity);
+        World.Add<SpatialDirty>(entity);
 
         // Remove o componente de ação, permitindo novos movimentos.
         World.Remove<MoveAction>(entity);
@@ -101,7 +101,7 @@ public sealed partial class GridMovementSystem(
 
     private bool IsMoveInvalid(Entity entity, int mapId, Position target)
     {
-        if (!mapIndex.TryGet(mapId, out var currentMap))
+        if (!mapServiceIndex.TryGet(mapId, out var currentMap))
         {
             logger.LogWarning("Mapa {MapId} não encontrado para validação de movimento.", mapId);
             return true; // Se o mapa não existe, o movimento é inválido.

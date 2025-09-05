@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Arch.Core;
 using Simulation.Application.Ports.Commons;
 using Simulation.Application.Ports.Commons.Indexers;
@@ -10,8 +11,8 @@ namespace Simulation.Persistence.Commons;
 public abstract class EntityIndex<TKey> : IEntityIndex<TKey>, IReverseIndex<TKey, Entity>
     where TKey : notnull
 {
-    private readonly Dictionary<TKey, Entity> _map = new();
-    private readonly Dictionary<Entity, TKey> _reverseMap = new();
+    private readonly ConcurrentDictionary<TKey, Entity> _map = new();
+    private readonly ConcurrentDictionary<Entity, TKey> _reverseMap = new();
 
     public virtual void Register(TKey key, Entity entity)
     {
@@ -19,7 +20,7 @@ public abstract class EntityIndex<TKey> : IEntityIndex<TKey>, IReverseIndex<TKey
         {
             if (!EqualityComparer<TKey>.Default.Equals(existingKey, key))
             {
-                _map.Remove(existingKey);
+                _map.TryRemove(existingKey, out _);
             }
         }
 
@@ -31,7 +32,7 @@ public abstract class EntityIndex<TKey> : IEntityIndex<TKey>, IReverseIndex<TKey
     {
         if (_map.Remove(key, out var entity))
         {
-            _reverseMap.Remove(entity);
+            _reverseMap.TryRemove(entity, out _);
             return true;
         }
         return false;
@@ -39,9 +40,9 @@ public abstract class EntityIndex<TKey> : IEntityIndex<TKey>, IReverseIndex<TKey
 
     public virtual bool UnregisterValue(Entity entity)
     {
-        if (_reverseMap.Remove(entity, out var key))
+        if (_reverseMap.TryRemove(entity, out var key))
         {
-            _map.Remove(key);
+            _map.TryRemove(key, out _);
             return true;
         }
         return false;

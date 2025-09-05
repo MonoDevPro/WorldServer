@@ -4,6 +4,6 @@ using Simulation.Persistence.Commons;
 
 namespace Simulation.Persistence.Map;
 
-public sealed class MapIndex : EntityIndex<int>, IMapIndex
+public sealed class SpatialMapIndex : DefaultIndex<int, MapService>, IMapServiceIndex
 {
 }

@@ -17,43 +17,38 @@ namespace Simulation.Application.Systems;
 /// </summary>
 public sealed partial class TeleportSystem(
     World world,
-    IMapIndex mapIndex,
+    IMapServiceIndex mapServiceIndex,
     ISpatialIndex spatialIndex,
-    ICharIndex charIndex,
     ILogger<TeleportSystem> logger)
     : BaseSystem<World, float>(world)
 {
     private readonly List<Entity> _queryResults = new(16);
 
     [Query]
-    [All<TeleportIntent, MapId, Position, CharId, Version>]
-    private void Process(in Entity entity, ref TeleportIntent intent, ref Position pos, in MapId mapId, in CharId charId, ref Version version)
+    [All<TeleportIntent, MapId, Position, CharId>]
+    private void Process(in Entity entity, ref TeleportIntent intent, ref Position pos, in MapId mapId, in CharId charId)
     {
-        var targetPos = intent.TargetPos;
-        var targetMapId = intent.TargetMapId;
+        var targetPos = intent.Pos;
+        var targetMapId = intent.MapId;
 
         // Valida o movimento antes de aplicá-lo
         if (IsTeleportInvalid(entity, targetMapId, targetPos))
         {
             logger.LogWarning("Teleporte inválido para CharId {CharId} para a posição {TargetPos} no mapa {TargetMapId}. Removendo intent.",
                 charId.Value, targetPos, targetMapId);
-
             // Opcional: Enviar um snapshot de reconciliação para corrigir a posição do cliente, se necessário.
         }
         else
         {
             // O teleporte é válido, aplica as mudanças
             pos = targetPos;
-            version.Value++; // Incremente a versão aqui
             
             // Se o mapa mudou, atualiza o componente MapId na entidade
             if (mapId.Value != targetMapId)
-            {
-                World.Set(entity, new MapId(targetMapId));
-            }
+                World.Set(entity, new MapId { Value = targetMapId } );
 
             // Marca a entidade como "suja" para que o índice espacial seja atualizado
-            World.Add<SpatialDirty, TemplateDirty>(entity);
+            World.Add<SpatialDirty>(entity);
 
             // Envia um snapshot para notificar os clientes sobre o teleporte
             var snapshot = new TeleportSnapshot(charId.Value, World.Get<MapId>(entity).Value, pos);
@@ -72,7 +67,7 @@ public sealed partial class TeleportSystem(
     /// </summary>
     private bool IsTeleportInvalid(Entity entity, int mapIdValue, Position targetPos)
     {
-        if (!mapIndex.TryGet(mapIdValue, out var mapData))
+        if (!mapServiceIndex.TryGet(mapIdValue, out var mapData))
         {
             logger.LogWarning("Tentativa de teleporte para mapa inválido: {MapId}", mapIdValue);
             return true; // Mapa de destino não existe

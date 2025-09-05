@@ -13,8 +13,8 @@ public struct TeleportIntentPacket : INetSerializable
     public void FromDTO(in TeleportIntent dto)
     {
         CharId = dto.CharId;
-        MapId = dto.TargetMapId;
-        Position = dto.TargetPos;
+        MapId = dto.MapId;
+        Position = dto.Pos;
     }
 
     public Application.DTOs.TeleportIntent ToDTO() => new(CharId, MapId, Position);

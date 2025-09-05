@@ -5,9 +5,11 @@ using Arch.System;
 using Microsoft.Extensions.Logging;
 using Simulation.Application.DTOs;
 using Simulation.Application.Factories;
+using Simulation.Application.Services;
 using Simulation.Client.Core;
 using Simulation.Domain.Components;
 using Simulation.Domain.Templates;
+using Simulation.Factories;
 
 namespace Simulation.Client.Systems;
 
@@ -18,7 +20,7 @@ namespace Simulation.Client.Systems;
 public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
 {
     private readonly ILogger<SnapshotHandlerSystem> _logger;
-    private readonly CommandBuffer _cmd = new(256);
+    private readonly DoubleBufferedCommandBuffer _cmd = new(256);
     
     // Mapeia CharId para Entity no mundo local
     private readonly ConcurrentDictionary<int, Entity> _charIdToEntity = new();
@@ -41,7 +43,7 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
         // Consome snapshots enfileirados pela thread de rede e agenda mudanças no CommandBuffer
         while (_enterQueue.TryDequeue(out var e))
         {
-            _logger.LogInformation("Processando EnterSnapshot para CharId {CharId} no MapId {MapId}", e.charId, e.mapId);
+            _logger.LogInformation("Processando EnterSnapshot para CharId {CharId} no MapId {MapId}", e.CharId, e.MapId);
             foreach (var template in e.templates)
             {
                 CreateCharacterEntity(template);
@@ -70,13 +72,13 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
         while (_moveQueue.TryDequeue(out var mv))
         {
             _logger.LogTrace("Processando MoveSnapshot para CharId {CharId}: {OldPos} -> {NewPos}",
-                mv.CharId, $"({mv.OldPosition.X},{mv.OldPosition.Y})", $"({mv.NewPosition.X},{mv.NewPosition.Y})");
+                mv.CharId, $"({mv.Old.X},{mv.Old.Y})", $"({mv.New.X},{mv.New.Y})");
             if (_charIdToEntity.TryGetValue(mv.CharId, out var entity))
             {
                 // Verificação crucial
                 if (World.IsAlive(entity))
                 {
-                    _cmd.Set(entity, mv.NewPosition);
+                    _cmd.Set(entity, mv.New);
                 }
             }
         }
@@ -98,13 +100,13 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
                 if (World.IsAlive(entity))
                 {
                     _cmd.Set(entity, tp.Position);
-                    _cmd.Set(entity, new MapId(tp.MapId));
+                    _cmd.Set(entity, new MapId { Value = tp.MapId });
                 }
             }
         }
 
         // Aplica todas as mudanças agendadas no CommandBuffer (na thread principal)
-        _cmd.Playback(World, dispose: true);
+        _cmd.SwapAndPlayback(World, disposeAfterPlayback: true);
     }
 
     public void HandleSnapshot(in EnterSnapshot snapshot)
@@ -147,7 +149,7 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
         }
 
         // Cria nova entidade para o personagem usando a mesma factory do servidor
-        var entity = CharFactory.CreateEntity(_cmd, template);
+        var entity = CharFactory.Create(_cmd, template);
 
         _charIdToEntity[template.CharId] = entity;
         
@@ -157,7 +159,7 @@ public class SnapshotHandlerSystem : BaseSystem<World, float>, ISnapshotHandler
 
     private void UpdateCharacterEntity(Entity entity, CharTemplate template)
     {
-        _cmd.Set(entity, new MapId(template.MapId));
+        _cmd.Set(entity, new MapId { Value = template.MapId });
         _cmd.Set(entity, template.Position);
         _cmd.Set(entity, template.Direction);
         _cmd.Set(entity, new MoveStats { Speed = template.MoveSpeed });

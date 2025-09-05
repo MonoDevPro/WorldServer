@@ -9,6 +9,7 @@ using Simulation.Application.DTOs;
 using Simulation.Application.Options;
 using Simulation.Application.Ports;
 using Simulation.Application.Ports.Char;
+using Simulation.Application.Ports.Char.Indexers;
 using Simulation.Networking.DTOs.Intents;
 using Simulation.Networking.DTOs.Snapshots;
 
@@ -24,6 +25,7 @@ public sealed class LiteNetServer : INetEventListener, ICharSnapshotPublisher
 {
     private readonly NetManager _server;
     private readonly ICharIntentHandler _charIntentHandler;
+    private readonly ICharTemplateRepository _charTemplateRepository;
     private readonly NetPacketProcessor _packetProcessor;
     private readonly ILogger<LiteNetServer> _logger;
     private readonly NetworkOptions _options;
@@ -35,11 +37,13 @@ public sealed class LiteNetServer : INetEventListener, ICharSnapshotPublisher
 
     public LiteNetServer(
         ICharIntentHandler charIntentHandler, 
+        ICharTemplateRepository charTemplateRepository,
         NetPacketProcessor packetProcessor,
         IOptions<NetworkOptions> options,
         ILogger<LiteNetServer> logger)
     {
         _charIntentHandler = charIntentHandler;
+        _charTemplateRepository = charTemplateRepository;
         _packetProcessor = packetProcessor;
         _logger = logger;
         _options = options.Value;
@@ -62,7 +66,7 @@ public sealed class LiteNetServer : INetEventListener, ICharSnapshotPublisher
     // --- Lógica de Publicação (Saída) ---
     public void Publish(in EnterSnapshot snapshot)
     {
-        if (_charIdToPeer.TryGetValue(snapshot.charId, out var peer))
+        if (_charIdToPeer.TryGetValue(snapshot.CharId, out var peer))
         {
             var packet = new EnterSnapshotPacket();
             packet.FromDTO(in snapshot);
@@ -120,6 +124,10 @@ public sealed class LiteNetServer : INetEventListener, ICharSnapshotPublisher
         
         _logger.LogInformation("Snapshot de teleporte de personagem {CharId} transmitido para todos os jogadores.", snapshot.CharId);
     }
+    public void Publish(CharSaveTemplate snapshot)
+    {
+        _logger.LogInformation("Snapshot de salvamento de personagem {CharId} preparado para persistência.", snapshot.CharId);
+    }
     
     private void Send<T>(NetPeer peer, ref T packet, DeliveryMethod method = DeliveryMethod.ReliableOrdered) where T : struct, INetSerializable
     {
@@ -154,8 +162,16 @@ public sealed class LiteNetServer : INetEventListener, ICharSnapshotPublisher
         _packetProcessor.SubscribeNetSerializable<EnterIntentPacket, NetPeer>((intent, peer) =>
         {
             _logger.LogInformation("Recebido EnterIntent para CharId {CharId} do peer {PeerEndPoint}", intent.CharId, peer.Address);
+
+            if (!_charTemplateRepository.TryGet(intent.CharId, out var charTemplate) || charTemplate == null)
+            {
+                _logger.LogWarning("CharId {CharId} não encontrado. Ignorando EnterIntent de {PeerEndPoint}.",
+                    intent.CharId, peer.Address);
+                return;
+            }
+
             MapPeerToChar(peer, intent.CharId);
-            _charIntentHandler.HandleIntent(intent.ToDTO());
+            _charIntentHandler.HandleIntent(intent.ToDTO(), charTemplate);
         });
 
         // Registra os outros intents, garantindo que o peer está autenticado

@@ -1,7 +1,7 @@
 using Arch.Core;
 using Simulation.Domain.Components;
 
-namespace Simulation.Application.Ports.Map;
+namespace Simulation.Application.Ports.Map.Indexers;
 
 /// <summary>
 /// Interface para um índice espacial que opera sobre o mundo ECS.

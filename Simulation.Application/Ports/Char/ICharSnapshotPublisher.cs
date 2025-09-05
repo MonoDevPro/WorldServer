@@ -10,4 +10,7 @@ public interface ICharSnapshotPublisher : IDisposable
     public void Publish(in MoveSnapshot snapshot);
     public void Publish(in AttackSnapshot snapshot);
     public void Publish(in TeleportSnapshot snapshot);
+    
+    // Persistant data
+    public void Publish(CharSaveTemplate snapshot);
 }

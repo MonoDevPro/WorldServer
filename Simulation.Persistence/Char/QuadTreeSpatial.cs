@@ -4,6 +4,7 @@ using Arch.Core;
 using QuadTrees;
 using QuadTrees.QTreeRect;
 using Simulation.Application.Ports.Map;
+using Simulation.Application.Ports.Map.Indexers;
 using Simulation.Domain.Components;
 
 namespace Simulation.Persistence.Char;

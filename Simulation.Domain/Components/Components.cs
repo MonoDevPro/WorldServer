@@ -3,27 +3,20 @@ namespace Simulation.Domain.Components;
 
 // Tag Components
 public struct Blocking { }
-
-// TODO: No futuro, ser otimizado para apenas enviar snapshots de entidades cuja versão mudou desde a última atualização enviada ao cliente.
-public struct Version { public uint Value; }
-public struct TemplateDirty { }
+public struct SpatialDirty { }
 
 // Identificadores
-public readonly record struct CharId(int Value);
-public readonly record struct MapId(int Value);
+public struct CharId { public int Value; }
+public struct MapId { public int Value; }
 
 // Estado de Entidade
 public struct Position { public int X,Y; }
-public struct Direction { public int X,Y; }
+public struct Direction { public int X, Y; }
 public struct Lifetime { public float RemainingSeconds; }
 
 // Mapas
-public readonly record struct MapSize(int Width, int Height);
-public readonly record struct MapFlags(bool UsePadded);
-public readonly record struct MapLoadRequest(int MapId);
-
-// Spatial Index
-public readonly record struct SpatialDirty(int X, int Y);
+public struct MapSize{ public int Width, Height;}
+public struct MapFlags {public bool UsePadded; };
 
 // Movimento
 public struct MoveStats { public float Speed; }
