@@ -9,6 +9,7 @@ using Simulation.Application.DTOs.Snapshots;
 using Simulation.Application.Ports.ECS;
 using Simulation.Application.Ports.ECS.Utils;
 using Simulation.Application.Ports.ECS.Utils.Indexers;
+using Simulation.Application.Ports.Persistence;
 using Simulation.Application.Services.ECS.Handlers;
 
 namespace Simulation.Application.Services.ECS.Systems;
@@ -18,6 +19,7 @@ public sealed partial class PlayerLifecycleSystem(
     IStateSnapshotBuilder snapshotBuilder,
     IMapEntityProvider mapProvider,
     IPlayerIndex index,
+    IPlayerRepository playerRepository,
     IFactoryHelper<PlayerStateDto> factory,
     IntentForwarding? intentForwarding,
     ILogger<PlayerLifecycleSystem> logger) : BaseSystem<World, float>(world: world)
@@ -25,11 +27,23 @@ public sealed partial class PlayerLifecycleSystem(
     // Nota: Query attributes devem corresponder exatamente aos componentes que o método recebe.
     [Query]
     [All<EnterIntent>]
-    [All<PlayerStateDto>]
-    private void OnEnterRequest(in Entity commandEntity, ref EnterIntent enter, ref PlayerStateDto dto)
+    private void OnEnterRequest(in Entity commandEntity, ref EnterIntent enter)
     {
+        PlayerStateDto? dto = null;
         try
         {
+            // 3. Carregar o PlayerTemplate a partir do repositório
+            if (!playerRepository.TryGet(enter.CharId, out var template) || template == null)
+            {
+                logger.LogError("CharId {CharId} tentou entrar mas não foi encontrado no repositório.", enter.CharId);
+                World.Destroy(commandEntity);
+                intentForwarding?.TryRemoveReservation(enter.CharId);
+                return;
+            }
+            
+            // 4. Criar o DTO a partir do template carregado (o servidor é a fonte da verdade)
+            dto = PlayerStateDto.CreateFromTemplate(template);
+            
             // Cria a entidade final no World
             var archetype = factory.GetArchetype();
             var player = World.Create(archetype);
