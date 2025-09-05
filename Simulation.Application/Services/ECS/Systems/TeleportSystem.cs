@@ -23,21 +23,22 @@ public sealed partial class TeleportSystem(
     : BaseSystem<World, float>(world)
 {
     private readonly List<Entity> _queryResults = new(16);
+    
+    [Query]
+    [All<TeleportIntent, TeleportCooldown>]
+    private void ValidateIntents(in Entity entity, ref TeleportCooldown cd)
+    {
+        // Server-side cooldown gate: if present and still ticking, ignore intent
+        if (cd.Remaining > 0f)
+            World.Remove<TeleportIntent>(entity);
+    }
+    
 
     [Query]
     [All<TeleportIntent, MapId, Position, CharId>]
+    [None<TeleportCooldown>]
     private void Process(in Entity entity, ref TeleportIntent intent, ref Position pos, in MapId mapId, in CharId charId)
     {
-        // Server-side cooldown gate: if present and still ticking, ignore intent
-        if (World.Has<TeleportCooldown>(entity))
-        {
-            ref var cd = ref World.Get<TeleportCooldown>(entity);
-            if (cd.Remaining > 0f)
-            {
-                World.Remove<TeleportIntent>(entity);
-                return;
-            }
-        }
         var targetPos = intent.Pos;
         var targetMapId = intent.MapId;
 

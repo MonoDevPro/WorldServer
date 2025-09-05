@@ -28,10 +28,10 @@ public class PlayerFactoryHelper : IFactoryHelper<PlayerStateDto>
         setters[3] = (world, e) => world.Set(e, data.Direction);
         setters[4] = (world, e) => world.Set(e, new MoveStats { Speed = data.MoveSpeed });
         setters[5] = (world, e) => world.Set(e, new AttackStats { CastTime = data.AttackCastTime, Cooldown = data.AttackCooldown });
-    // Optional components via setters
-    setters[6] = (world, e) => world.Set(e, new Blocking());
-    // Ensure InCombat exists as a flag; semantics handled by combat systems
-    setters[7] = (world, e) => world.Add<InCombat>(e);
+        // Optional components via setters
+        setters[6] = (world, e) => world.Set(e, new Blocking());
+        // Ensure InCombat exists as a flag; semantics handled by combat systems
+        setters[7] = (world, e) => world.Add<InCombat>(e);
     }
 
     public void ApplyTo(World world, Entity e, PlayerStateDto data)
