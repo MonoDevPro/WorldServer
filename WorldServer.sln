@@ -2,8 +2,6 @@
 #
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Core.Tests", "Simulation.Core.Tests\Simulation.Core.Tests.csproj", "{ABC39F1F-CB0A-4CFF-B199-A2E81319F890}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Client", "Simulation.Client\Simulation.Client.csproj", "{6C0C44C7-BB46-4F5E-A7D0-10A1EBA1B0C1}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuadTrees", "QuadTrees\QuadTrees\QuadTrees.csproj", "{B8727F00-3F15-4960-BC96-F4349729EC20}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Domain", "Simulation.Domain\Simulation.Domain.csproj", "{60E91086-384F-4798-AA07-601DB99282C8}"
@@ -24,6 +22,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{6CCECBCA
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Simulation.Pooling", "Simulation.Pooling\Simulation.Pooling.csproj", "{C17FC145-6680-4C8A-9983-FBCEBB363179}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameClient", "Simulation.Client\game-client\GameClient.csproj", "{72311352-042E-497A-9EF8-B44449F5A36C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -34,10 +34,6 @@ Global
 		{ABC39F1F-CB0A-4CFF-B199-A2E81319F890}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ABC39F1F-CB0A-4CFF-B199-A2E81319F890}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{ABC39F1F-CB0A-4CFF-B199-A2E81319F890}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6C0C44C7-BB46-4F5E-A7D0-10A1EBA1B0C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6C0C44C7-BB46-4F5E-A7D0-10A1EBA1B0C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6C0C44C7-BB46-4F5E-A7D0-10A1EBA1B0C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6C0C44C7-BB46-4F5E-A7D0-10A1EBA1B0C1}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B8727F00-3F15-4960-BC96-F4349729EC20}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B8727F00-3F15-4960-BC96-F4349729EC20}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B8727F00-3F15-4960-BC96-F4349729EC20}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -66,6 +62,10 @@ Global
 		{C17FC145-6680-4C8A-9983-FBCEBB363179}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C17FC145-6680-4C8A-9983-FBCEBB363179}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C17FC145-6680-4C8A-9983-FBCEBB363179}.Release|Any CPU.Build.0 = Release|Any CPU
+		{72311352-042E-497A-9EF8-B44449F5A36C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{72311352-042E-497A-9EF8-B44449F5A36C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{72311352-042E-497A-9EF8-B44449F5A36C}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{72311352-042E-497A-9EF8-B44449F5A36C}.Release|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{14330353-5556-4EA3-906C-351611692167} = {D9E67A1D-4FAE-4A49-9444-1D6949ACB911}
