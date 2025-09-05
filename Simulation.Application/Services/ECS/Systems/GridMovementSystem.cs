@@ -23,7 +23,15 @@ public sealed partial class GridMovementSystem(
     : BaseSystem<World, float>(world)
 {
     private readonly List<Entity> _queryResults = new();
-
+    
+    [Query]
+    [All<MoveIntent, MoveAction>]
+    private void RemoveRedundantIntents(in Entity entity)
+    {
+        // Remove intenções redundantes se já houver uma ação de movimento em andamento.
+        World.Remove<MoveIntent>(entity);
+    }
+    
     /// <summary>
     /// Processa a intenção de mover, iniciando a ação de movimento.
     /// </summary>
