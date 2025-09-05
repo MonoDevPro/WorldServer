@@ -1,5 +1,174 @@
-bin/
-obj/
-/packages/
-riderModule.iml
-/_ReSharper.Caches/
+# ===========================================
+# Gitignore para Godot (C#) + projetos C#/.NET
+# ===========================================
+#
+# Inclui:
+#  - Godot (assets importados, cache, mono build artifacts)
+#  - .NET / C# (bin/ obj/ packages/ etc)
+#  - IDEs: Visual Studio, Rider (JetBrains), VSCode
+#  - Arquivos temporários do SO
+#
+# Ajuste conforme necessário (por exemplo, mantén export_presets.cfg se quiser versionar).
+#
+
+# ---------------------
+# Godot
+# ---------------------
+# Import cache (gerado automaticamente para cada import)
+.import/
+# Godot editor caches / local state
+.cache/
+# Godot 3/4 per-project data (editor local config). Se quiser versionar o project.godot, remova.
+.godot/
+# Mono/CS build artifacts produced by Godot (C#)
+.mono/
+# Exports gerados (ex.: builds locais)
+.export/
+# Arquivos *.import gerados
+*.import
+# arquivos temporários de build mono
+mono_crash.*
+# (opcional) se você deseja versionar project.godot, remova a linha abaixo
+# (por padrão muitos projetos versionam project.godot; revise a necessidade)
+# /.godot/project.godot
+
+# ---------------------
+# .NET / C# build outputs & packages
+# ---------------------
+# bin/ e obj/ (por-sol1)
+**/bin/
+**/obj/
+# Visual Studio build output folders
+[Bb]in/
+[Oo]bj/
+# Publish output
+publish/
+# NuGet packages folder (local)
+packages/
+*.nupkg
+# dotnet temporary / lock files
+project.lock.json
+project.assets.json
+project.nuget.cache
+# Rider caches (if using dotnet)
+.idea/
+*.sln.iml
+
+# ---------------------
+# Visual Studio / VS for Mac
+# ---------------------
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.cache
+*.VC.db
+*.VC.opendb
+*.csproj.user
+*.pidb
+*.booproj
+*.svclog
+
+# ---------------------
+# Rider / JetBrains
+# ---------------------
+.idea/
+*.iml
+*.iws
+.idea/*workspace.xml
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/dictionaries/
+
+# ---------------------
+# VSCode
+# ---------------------
+.vscode/
+# Se quiser commitar .vscode/settings.json/launch.json para a equipe, remova a linha acima
+# ou substitua por:
+# .vscode/*          # ignora tudo
+# !.vscode/launch.json
+# !.vscode/tasks.json
+
+# ---------------------
+# Temp / logs / tooling
+# ---------------------
+*.log
+*.vsix
+*.db
+*.db-shm
+*.db-wal
+*.bak
+*.backup
+*.tmp
+*.temp
+*.swp
+*~.nib
+*.orig
+
+# ---------------------
+# OS files
+# ---------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+# Thumbs & Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ---------------------
+# Mono / Unity / Misc .NET
+# ---------------------
+*.mdb
+*.pdb
+*.opendb
+*.ilk
+*.meta
+
+# ---------------------
+# Paket (if used)
+# ---------------------
+.paket/
+paket-files/
+
+# ---------------------
+# Test output
+# ---------------------
+TestResults/
+[xR]elease/
+coverage/
+coverage.*.xml
+
+# ---------------------
+# Rider caches / ReSharper
+# ---------------------
+_ReSharper*/
+*.DotSettings.user
+
+# ---------------------
+# Docker / build artifacts
+# ---------------------
+docker-compose.override.yml
+**/docker-compose.override.yml
+.docker/
+
+# ---------------------
+# Other IDE / Editor
+# ---------------------
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# ---------------------
+# Optional: lockfiles and local secrets
+# ---------------------
+secrets.json
+*.usersecrets
+
+# ---------------------
+# End
+# ---------------------
