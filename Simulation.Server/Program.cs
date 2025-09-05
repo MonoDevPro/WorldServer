@@ -1,8 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Simulation.Application.Ports.Char.Indexers;
-using Simulation.Application.Ports.Commons.Persistence;
-using Simulation.Application.Ports.Map.Indexers;
+using Simulation.Application.Ports.Persistence.Persistence;
 using Simulation.Networking;
 using Simulation.Server;
 
@@ -16,7 +14,6 @@ await using var provider = services.BuildServiceProvider();
 
 // 3. Resolução dos Serviços Principais
 
-var network = provider.GetRequiredService<LiteNetServer>();
 var loop = provider.GetRequiredService<ServerLoop>();
 var logger = provider.GetRequiredService<ILogger<Program>>();
 

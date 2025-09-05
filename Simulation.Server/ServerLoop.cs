@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Simulation.Application.Services;
+using Simulation.Application.Services.ECS;
 using Simulation.Networking;
 
 namespace Simulation.Server;
@@ -14,7 +15,7 @@ public class ServerLoop : IAsyncDisposable
     private readonly Stopwatch _mainTimer = new();
     private readonly ILogger<ServerLoop> _logger;
     private readonly SimulationRunner _simulationRunner;
-    private readonly LiteNetServer _networkServer;
+    private readonly LiteNetLibAdapter _networkServer;
     private readonly PerformanceMonitor? _performanceMonitor;
 
     // Precompiled logging delegates to avoid allocating object[] and boxing on each log call.
@@ -32,7 +33,7 @@ public class ServerLoop : IAsyncDisposable
     public ServerLoop(
         ILogger<ServerLoop> logger,
         SimulationRunner simulationRunner,
-        LiteNetServer networkServer,
+        LiteNetLibAdapter networkServer,
         PerformanceMonitor? performanceMonitor = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

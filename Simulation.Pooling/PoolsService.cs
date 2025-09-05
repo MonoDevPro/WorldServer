@@ -1,38 +1,38 @@
 using System.Buffers;
 using Microsoft.Extensions.ObjectPool;
 using Simulation.Application.DTOs;
-using Simulation.Application.Ports.Commons.Pools;
+using Simulation.Application.Ports.Commons;
 using Simulation.Domain.Templates;
 
 namespace Simulation.Pooling;
 
 public class PoolsService : IPoolsService
 {
-    private readonly ObjectPool<List<CharTemplate>> _listPool;
-    private readonly ObjectPool<CharTemplate> _templatePool;
-    private readonly ObjectPool<CharSaveTemplate> _saveTemplatePool;
-    private readonly ArrayPool<CharTemplate> _arrayPool;
+    private readonly ObjectPool<List<PlayerTemplate>> _listPool;
+    private readonly ObjectPool<PlayerTemplate> _templatePool;
+    private readonly ObjectPool<PlayerStateDto> _stateDtoPool;
+    private readonly ArrayPool<PlayerTemplate> _arrayPool;
 
-    public PoolsService(ObjectPool<List<CharTemplate>> listPool,
-        ObjectPool<CharTemplate> templatePool,
-        ObjectPool<CharSaveTemplate> saveTemplatePool,
-        ArrayPool<CharTemplate> arrayPool)
+    public PoolsService(ObjectPool<List<PlayerTemplate>> listPool,
+        ObjectPool<PlayerTemplate> templatePool,
+        ObjectPool<PlayerStateDto> stateDtoPool,
+        ArrayPool<PlayerTemplate> arrayPool)
     {
         _listPool = listPool;
         _templatePool = templatePool;
-        _saveTemplatePool = saveTemplatePool;
+        _stateDtoPool = stateDtoPool;
         _arrayPool = arrayPool;
     }
 
-    public List<CharTemplate> RentList() => _listPool.Get();
-    public void ReturnList(List<CharTemplate> list) => _listPool.Return(list);
+    public List<PlayerTemplate> RentList() => _listPool.Get();
+    public void ReturnList(List<PlayerTemplate> list) => _listPool.Return(list);
 
-    public CharTemplate RentTemplate() => _templatePool.Get();
-    public void ReturnTemplate(CharTemplate template) => _templatePool.Return(template);
+    public PlayerTemplate RentTemplate() => _templatePool.Get();
+    public void ReturnTemplate(PlayerTemplate template) => _templatePool.Return(template);
     
-    public CharSaveTemplate RentCharSaveTemplate() => _saveTemplatePool.Get();
-    public void ReturnCharSaveTemplate(CharSaveTemplate template) => _saveTemplatePool.Return(template);
+    public PlayerStateDto RentPlayerStateDto() => _stateDtoPool.Get();
+    public void ReturnPlayerStateDto(PlayerStateDto template) => _stateDtoPool.Return(template);
 
-    public CharTemplate[] RentArray(int minLength) => _arrayPool.Rent(minLength);
-    public void ReturnArray(CharTemplate[] array, bool clearArray = false) => _arrayPool.Return(array, clearArray);
+    public PlayerTemplate[] RentArray(int minLength) => _arrayPool.Rent(minLength);
+    public void ReturnArray(PlayerTemplate[] array, bool clearArray = false) => _arrayPool.Return(array, clearArray);
 }

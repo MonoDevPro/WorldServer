@@ -11,17 +11,17 @@ namespace Simulation.Pooling;
 /// <summary>
 /// Pooled policy para CharTemplate — reseta o objeto ao retorná-lo.
 /// </summary>
-public sealed class CharTemplatePooledPolicy : PooledObjectPolicy<CharTemplate>
+public sealed class CharTemplatePooledPolicy : PooledObjectPolicy<PlayerTemplate>
 {
-    public override CharTemplate Create() => new CharTemplate();
+    public override PlayerTemplate Create() => new PlayerTemplate();
 
-    public override bool Return(CharTemplate obj)
+    public override bool Return(PlayerTemplate obj)
     {
         Reset(obj);
         return true;
     }
 
-    private static void Reset(CharTemplate t)
+    private static void Reset(PlayerTemplate t)
     {
         // Ajuste aqui de acordo com as propriedades reais de CharTemplate.
         // Exemplo conforme seu snippet original:

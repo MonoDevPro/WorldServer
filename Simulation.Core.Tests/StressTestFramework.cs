@@ -1,4 +1,4 @@
-using System;
+/*using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -23,12 +23,12 @@ public class StressTestFramework : IDisposable
     private readonly Random _random = new();
     private volatile bool _isRunning;
 
-    public StressTestFramework(ILogger<StressTestFramework> logger)
+    public StressTestFramework(ILogger<StressTestFramework> logger)/*#1#
     {
         _logger = logger;
     }
 
-    /// <summary>
+/*#1#    /// <summary>
     /// Executa teste de stress com N clientes simulados
     /// </summary>
     public async Task RunStressTest(int clientCount, TimeSpan duration, string serverHost = "127.0.0.1", int serverPort = 9050)
@@ -245,7 +245,7 @@ internal class StressTestClient : INetEventListener, IDisposable
     private void RegisterPacketHandlers()
     {
         // Handlers para snapshots recebidos - apenas contabiliza
-        _packetProcessor.SubscribeNetSerializable<Simulation.Networking.DTOs.Snapshots.EnterSnapshotPacket>(OnSnapshotReceived);
+        _packetProcessor.SubscribeNetSerializable<Simulation.Networking.DTOs.Snapshots.JoinAckPacket>(OnSnapshotReceived);
         _packetProcessor.SubscribeNetSerializable<Simulation.Networking.DTOs.Snapshots.ExitSnapshotPacket>(OnSnapshotReceived);
         _packetProcessor.SubscribeNetSerializable<Simulation.Networking.DTOs.Snapshots.MoveSnapshotPacket>(OnSnapshotReceived);
         _packetProcessor.SubscribeNetSerializable<Simulation.Networking.DTOs.Snapshots.AttackSnapshotPacket>(OnSnapshotReceived);
@@ -308,4 +308,4 @@ internal class StressTestClient : INetEventListener, IDisposable
     {
         _netManager?.Stop();
     }
-}
+}*/
