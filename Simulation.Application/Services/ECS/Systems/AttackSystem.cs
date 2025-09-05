@@ -28,6 +28,12 @@ namespace Simulation.Application.Services.ECS.Systems
         [None<AttackAction>] // Garante que não iniciemos um novo ataque se um já estiver em andamento.
         private void ProcessAttackIntent(in Entity entity, in AttackIntent cmd, in AttackStats stats)
         {
+            // If still cooling down from a previous attack, ignore the intent (server authority)
+            if (World.Has<AttackAction>(entity))
+            {
+                World.Remove<AttackIntent>(entity);
+                return;
+            }
             // 1. Cria a ação de ataque com base nos status do personagem.
             var attackAction = new AttackAction
             {

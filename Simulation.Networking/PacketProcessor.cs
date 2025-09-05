@@ -23,8 +23,7 @@ public static class PacketProcessor
             case MessageType.EnterIntent:
                 {
                     var intent = new EnterIntent(reader.GetInt());
-                    var state = ReadPlayerStateDto(reader); // Cliente envia seu estado inicial
-                    handler.HandleIntent(intent, state);
+                    handler.HandleIntent(intent);
                     break;
                 }
             case MessageType.ExitIntent:
@@ -118,17 +117,5 @@ public static class PacketProcessor
         writer.Put(state.AttackCooldown);
     }
 
-    private static PlayerStateDto ReadPlayerStateDto(NetPacketReader reader)
-    {
-        return new PlayerStateDto(
-            CharId: reader.GetInt(),
-            EntityId: reader.GetInt(),
-            MapId: reader.GetInt(),
-            Position: new Position { X = reader.GetInt(), Y = reader.GetInt() },
-            Direction: new Direction { X = reader.GetInt(), Y = reader.GetInt() },
-            MoveSpeed: reader.GetFloat(),
-            AttackCastTime: reader.GetFloat(),
-            AttackCooldown: reader.GetFloat()
-        );
-    }
+    // Note: No longer reading PlayerStateDto from client on enter; server is authority
 }

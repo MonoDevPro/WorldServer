@@ -8,6 +8,7 @@ namespace Simulation.Application.Services.ECS.Utils.Factories;
 
 public class PlayerFactoryHelper : IFactoryHelper<PlayerStateDto>
 {
+    // Base archetype: minimum components every player must have
     private static readonly ComponentType[] ArchetypeComponents = new[]
     {
         Component<CharId>.ComponentType,
@@ -16,7 +17,6 @@ public class PlayerFactoryHelper : IFactoryHelper<PlayerStateDto>
         Component<Direction>.ComponentType,
         Component<MoveStats>.ComponentType,
         Component<AttackStats>.ComponentType,
-        Component<Blocking>.ComponentType,
     };
 
     public ComponentType[] GetArchetype() => ArchetypeComponents;
@@ -28,7 +28,10 @@ public class PlayerFactoryHelper : IFactoryHelper<PlayerStateDto>
         setters[3] = (world, e) => world.Set(e, data.Direction);
         setters[4] = (world, e) => world.Set(e, new MoveStats { Speed = data.MoveSpeed });
         setters[5] = (world, e) => world.Set(e, new AttackStats { CastTime = data.AttackCastTime, Cooldown = data.AttackCooldown });
-        setters[6] = (world, e) => world.Set(e, new Blocking());
+    // Optional components via setters
+    setters[6] = (world, e) => world.Set(e, new Blocking());
+    // Ensure InCombat exists as a flag; semantics handled by combat systems
+    setters[7] = (world, e) => world.Add<InCombat>(e);
     }
 
     public void ApplyTo(World world, Entity e, PlayerStateDto data)
@@ -39,16 +42,17 @@ public class PlayerFactoryHelper : IFactoryHelper<PlayerStateDto>
             Position,
             Direction,
             MoveStats,
-            AttackStats,
-            Blocking
+            AttackStats
         >(e,
             new CharId { Value = data.CharId },
             new MapId { Value = data.MapId },
             data.Position,
             data.Direction,
             new MoveStats { Speed = data.MoveSpeed },
-            new AttackStats { CastTime = data.AttackCastTime, Cooldown = data.AttackCooldown },
-            new Blocking()
-            );
+            new AttackStats { CastTime = data.AttackCastTime, Cooldown = data.AttackCooldown }
+        );
+    // Default optional components
+    world.Add(e, new Blocking());
+    world.Add<InCombat>(e);
     }
 }

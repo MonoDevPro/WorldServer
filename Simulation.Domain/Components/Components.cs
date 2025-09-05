@@ -4,6 +4,7 @@ namespace Simulation.Domain.Components;
 // Tag Components
 public struct Blocking { }
 public struct SpatialDirty { }
+public struct InCombat { }
 
 // Identificadores
 public struct CharId { public int Value; }
@@ -28,3 +29,6 @@ public struct AttackAction { public float Duration, Remaining, Cooldown, Cooldow
 
 // Input
 public struct Input { public int X,Y; }
+
+// Teleporte
+public struct TeleportCooldown { public float Remaining; }

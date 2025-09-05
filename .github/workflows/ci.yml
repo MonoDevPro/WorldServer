@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore WorldServer.sln
+      - name: Build (Release)
+        run: dotnet build WorldServer.sln -c Release --no-restore
+      - name: Test
+        run: dotnet test WorldServer.sln -c Release --no-build --verbosity normal
+      - name: Check formatting
+        run: dotnet format WorldServer.sln --verify-no-changes

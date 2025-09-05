@@ -5,7 +5,8 @@ namespace Simulation.Application.Ports.ECS.Handlers;
 
 public interface IPlayerIntentHandler : IDisposable
 {
-    void HandleIntent(in EnterIntent intent, PlayerStateDto state);
+    // Server-authoritative: client doesn't send state here.
+    void HandleIntent(in EnterIntent intent);
     void HandleIntent(in ExitIntent intent);
     void HandleIntent(in MoveIntent intent);
     void HandleIntent(in TeleportIntent intent);

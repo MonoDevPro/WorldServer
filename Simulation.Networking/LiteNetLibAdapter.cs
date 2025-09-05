@@ -10,6 +10,8 @@ using Simulation.Application.DTOs.Snapshots;
 using Simulation.Application.Options;
 using Simulation.Application.Ports.ECS.Handlers;
 using Simulation.Application.Ports.ECS.Publishers;
+using Simulation.Application.Ports.ECS.Utils.Indexers;
+using Simulation.Domain.Components;
 
 namespace Simulation.Networking;
 
@@ -20,6 +22,8 @@ public class LiteNetLibAdapter : IPlayerSnapshotPublisher, IMapSnapshotPublisher
     private readonly NetDataWriter _writer = new();
     private readonly NetworkOptions _options;
     private readonly ILogger<LiteNetLibAdapter> _logger;
+    private readonly ISpatialIndex? _spatialIndex;
+    private readonly int _aoiRadius;
 
     // Mapeamento para saber qual conexão (NetPeer) pertence a qual jogador (CharId)
     private readonly ConcurrentDictionary<int, NetPeer> _charIdToPeer = new();
@@ -37,6 +41,19 @@ public class LiteNetLibAdapter : IPlayerSnapshotPublisher, IMapSnapshotPublisher
         {
             DisconnectTimeout = 10000
         };
+        _aoiRadius = 15; // default if not provided by SpatialOptions overload
+    }
+
+    // Secondary ctor for DI to wire spatial index and options (interest radius)
+    public LiteNetLibAdapter(IPlayerIntentHandler intentHandler,
+        IOptions<NetworkOptions> options,
+        IOptions<SpatialOptions> spatialOptions,
+        ISpatialIndex spatialIndex,
+        ILogger<LiteNetLibAdapter> logger)
+        : this(intentHandler, options, logger)
+    {
+        _spatialIndex = spatialIndex;
+        _aoiRadius = Math.Max(1, spatialOptions.Value.InterestRadius);
     }
 
     public void Start()
@@ -74,40 +91,39 @@ public class LiteNetLibAdapter : IPlayerSnapshotPublisher, IMapSnapshotPublisher
         // Ao entrar, atualizamos o mapa do jogador
         _charIdToMapId[joined.NewPlayer.CharId] = joined.NewPlayer.MapId;
         
-        _writer.Reset();
-        PacketProcessor.Write(_writer, joined);
-        // Envia para todos no mesmo mapa, exceto para o próprio jogador que entrou
-        BroadcastToMap(joined.NewPlayer.MapId, _writer, joined.NewPlayer.CharId);
+    _writer.Reset();
+    PacketProcessor.Write(_writer, joined);
+    // track position and broadcast to AOI
+    _lastKnownPositions[joined.NewPlayer.CharId] = joined.NewPlayer.Position;
+    BroadcastToArea(joined.NewPlayer.Position, _aoiRadius, _writer, joined.NewPlayer.CharId);
     }
 
     public void Publish(PlayerLeftDto left)
     {
-        _writer.Reset();
-        PacketProcessor.Write(_writer, left);
-        // Envia para todos que estavam no mesmo mapa
-        if(_charIdToMapId.TryGetValue(left.LeftPlayer.CharId, out var mapId))
-        {
-            BroadcastToMap(mapId, _writer, left.LeftPlayer.CharId);
-        }
+    _writer.Reset();
+    PacketProcessor.Write(_writer, left);
+    // Envia para jogadores dentro da AOI da última posição conhecida
+    BroadcastToArea(left.LeftPlayer.Position, _aoiRadius, _writer, left.LeftPlayer.CharId);
+    _lastKnownPositions.TryRemove(left.LeftPlayer.CharId, out _);
     }
     
     public void Publish(in MoveSnapshot s)
     {
         _writer.Reset();
         PacketProcessor.Write(_writer, s);
-        if(_charIdToMapId.TryGetValue(s.CharId, out var mapId))
-        {
-            BroadcastToMap(mapId, _writer, s.CharId);
-        }
+    // Broadcast AOI centrado na posição nova
+    _lastKnownPositions[s.CharId] = s.New;
+    BroadcastToArea(s.New, _aoiRadius, _writer, s.CharId);
     }
     
     public void Publish(in AttackSnapshot s)
     {
         _writer.Reset();
         PacketProcessor.Write(_writer, s);
-        if(_charIdToMapId.TryGetValue(s.CharId, out var mapId))
+        // Ataques são visíveis para quem está na AOI do atacante
+        if (_lastKnownPositions.TryGetValue(s.CharId, out var attackerPos))
         {
-            BroadcastToMap(mapId, _writer, s.CharId);
+            BroadcastToArea(attackerPos, _aoiRadius, _writer, s.CharId);
         }
     }
 
@@ -225,6 +241,45 @@ public class LiteNetLibAdapter : IPlayerSnapshotPublisher, IMapSnapshotPublisher
             }
         }
     }
+
+    // AOI-based broadcast using spatial index and interest radius
+    private void BroadcastToArea(Position center, int radius, NetDataWriter writer, int excludeCharId = -1)
+    {
+        if (_spatialIndex == null)
+        {
+            // Fallback to map broadcast if spatial index not wired
+            foreach (var kv in _charIdToPeer)
+            {
+                if (kv.Key == excludeCharId) continue;
+                var method = writer.Data[0] == (byte)MessageType.MoveSnapshot
+                    ? DeliveryMethod.Unreliable
+                    : DeliveryMethod.ReliableOrdered;
+                kv.Value.Send(writer, method);
+            }
+            return;
+        }
+
+        // We need to find charIds near center; since spatial index returns Entities, integrate with a PlayerIndex or maintain a mapping
+        // As a pragmatic approach, iterate peers and approximate by last known positions from Join/Move/Teleport snapshots
+        foreach (var kv in _charIdToPeer)
+        {
+            var charId = kv.Key;
+            if (charId == excludeCharId) continue;
+            if (!_lastKnownPositions.TryGetValue(charId, out var pos)) continue;
+            var dx = pos.X - center.X;
+            var dy = pos.Y - center.Y;
+            if ((dx * dx + dy * dy) <= radius * radius)
+            {
+                var method = writer.Data[0] == (byte)MessageType.MoveSnapshot
+                    ? DeliveryMethod.Unreliable
+                    : DeliveryMethod.ReliableOrdered;
+                kv.Value.Send(writer, method);
+            }
+        }
+    }
+
+    // Track last known positions to support AOI broadcasting without direct World access
+    private readonly ConcurrentDictionary<int, Position> _lastKnownPositions = new();
 
     public void Dispose()
     {

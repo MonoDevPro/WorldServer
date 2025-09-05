@@ -32,14 +32,17 @@ public sealed partial class GridMovementSystem(
     [None<MoveAction>] // Previne o início de um novo movimento se um já estiver ocorrendo.
     private void ProcessIntent(in Entity entity, in MoveIntent intent, in MapId mapId, in Position pos, in MoveStats stats, in CharId charId)
     {
-        if (intent.Input.IsZero())
+        // Server-authoritative input sanitation: clamp each axis to [-1, 1]
+        var dx = Math.Clamp(intent.Input.X, -1, 1);
+        var dy = Math.Clamp(intent.Input.Y, -1, 1);
+        if (dx == 0 && dy == 0)
         {
             World.Remove<MoveIntent>(entity);
             return;
         }
 
         var startPos = pos;
-        var targetPos = new Position { X = startPos.X + intent.Input.X, Y = startPos.Y + intent.Input.Y };
+        var targetPos = new Position { X = startPos.X + dx, Y = startPos.Y + dy };
 
         // Valida se o movimento é possível.
         if (IsMoveInvalid(entity, mapId.Value, targetPos))
@@ -51,7 +54,7 @@ public sealed partial class GridMovementSystem(
             return;
         }
 
-        var distance = MathF.Sqrt(MathF.Pow(targetPos.X - startPos.X, 2) + MathF.Pow(targetPos.Y - startPos.Y, 2));
+    var distance = MathF.Sqrt(MathF.Pow(targetPos.X - startPos.X, 2) + MathF.Pow(targetPos.Y - startPos.Y, 2));
         var speed = stats.Speed > 0 ? stats.Speed : 1f;
         var duration = distance / speed;
 

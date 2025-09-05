@@ -84,7 +84,7 @@ public sealed class IntentForwarding(
         _buffer.Set(e, intent);
     }
 
-    public void HandleIntent(in EnterIntent intent, PlayerStateDto state)
+    public void HandleIntent(in EnterIntent intent)
     {
         // Se já registrado (jogador já no jogo), ignora
         if (playerIndex.TryGet(intent.CharId, out _))
@@ -102,11 +102,10 @@ public sealed class IntentForwarding(
 
         try
         {
-            // Enfileira o EnterIntent + template no buffer ativo (thread-safe)
-            // Se CharTemplate for classe mutável, clone aqui antes de setar.
+            // O servidor vai buscar o template do jogador e construir seu estado inicial
             var e = _buffer.Create(new[] { Component<EnterIntent>.ComponentType, Component<PlayerTemplate>.ComponentType });
             _buffer.Set(e, intent);
-            _buffer.Set(e, state);
+            // PlayerTemplate será resolvido no PlayerLifecycleSystem a partir do repositório
         }
         catch (Exception ex)
         {

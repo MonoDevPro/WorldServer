@@ -28,6 +28,16 @@ public sealed partial class TeleportSystem(
     [All<TeleportIntent, MapId, Position, CharId>]
     private void Process(in Entity entity, ref TeleportIntent intent, ref Position pos, in MapId mapId, in CharId charId)
     {
+        // Server-side cooldown gate: if present and still ticking, ignore intent
+        if (World.Has<TeleportCooldown>(entity))
+        {
+            ref var cd = ref World.Get<TeleportCooldown>(entity);
+            if (cd.Remaining > 0f)
+            {
+                World.Remove<TeleportIntent>(entity);
+                return;
+            }
+        }
         var targetPos = intent.Pos;
         var targetMapId = intent.MapId;
 
@@ -56,10 +66,35 @@ public sealed partial class TeleportSystem(
 
             logger.LogInformation("CharId {CharId} teletransportado para {Position} no mapa {MapId}",
                 charId.Value, pos, targetMapId);
+
+            // Atualiza cooldown (exemplo: 3s). Server authority: client cannot set this
+            if (World.Has<TeleportCooldown>(entity))
+            {
+                ref var cd = ref World.Get<TeleportCooldown>(entity);
+                cd.Remaining = MathF.Max(cd.Remaining, 3f);
+            }
+            else
+            {
+                World.Add(entity, new TeleportCooldown { Remaining = 3f });
+            }
         }
 
         // Remove o componente de intenção, pois já foi processado
         World.Remove<TeleportIntent>(entity);
+    }
+
+    [Query]
+    [All<TeleportCooldown>]
+    private void TickCooldown([Data] in float dt, in Entity entity, ref TeleportCooldown cd)
+    {
+        if (cd.Remaining <= 0f)
+        {
+            World.Remove<TeleportCooldown>(entity);
+            return;
+        }
+        cd.Remaining -= dt;
+        if (cd.Remaining <= 0f)
+            World.Remove<TeleportCooldown>(entity);
     }
 
     /// <summary>
