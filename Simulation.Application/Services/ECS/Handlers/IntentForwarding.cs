@@ -103,7 +103,7 @@ public sealed class IntentForwarding(
         try
         {
             // O servidor vai buscar o template do jogador e construir seu estado inicial
-            var e = _buffer.Create(new[] { Component<EnterIntent>.ComponentType, Component<PlayerTemplate>.ComponentType });
+            var e = _buffer.Create(new[] { Component<EnterIntent>.ComponentType });
             _buffer.Set(e, intent);
             // PlayerTemplate será resolvido no PlayerLifecycleSystem a partir do repositório
         }
@@ -118,7 +118,7 @@ public sealed class IntentForwarding(
 
     public void HandleIntent(in ExitIntent intent)
     {
-        if (playerIndex.TryGet(intent.CharId, out var entity))
+        if (playerIndex.TryGet(intent.CharId, out var entity) && World.IsAlive(entity))
         {
             _buffer.Add(entity, intent);
         }
@@ -126,7 +126,7 @@ public sealed class IntentForwarding(
 
     public void HandleIntent(in MoveIntent intent)
     {
-        if (playerIndex.TryGet(intent.CharId, out var entity))
+        if (playerIndex.TryGet(intent.CharId, out var entity) && World.IsAlive(entity))
         {
             _buffer.Add(entity, intent);
         }
@@ -134,7 +134,7 @@ public sealed class IntentForwarding(
 
     public void HandleIntent(in AttackIntent intent)
     {
-        if (playerIndex.TryGet(intent.CharId, out var entity))
+        if (playerIndex.TryGet(intent.CharId, out var entity) && World.IsAlive(entity))
         {
             _buffer.Add(entity, intent);
         }
@@ -142,7 +142,7 @@ public sealed class IntentForwarding(
 
     public void HandleIntent(in TeleportIntent intent)
     {
-        if (playerIndex.TryGet(intent.CharId, out var entity))
+        if (playerIndex.TryGet(intent.CharId, out var entity) && World.IsAlive(entity))
         {
             _buffer.Add(entity, intent);
         }
