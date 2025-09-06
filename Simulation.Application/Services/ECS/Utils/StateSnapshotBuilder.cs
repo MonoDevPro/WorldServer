@@ -9,23 +9,31 @@ public class StateSnapshotBuilder : IStateSnapshotBuilder
 {
     public PlayerStateDto BuildCharState(World world, Entity e)
     {
-        // Use TryGet/Get conforme a certeza de existência de componentes.
-        ref var cid = ref world.Get<CharId>(e).Value;
-        ref var mid = ref world.Get<MapId>(e).Value;
-        ref var pos = ref world.Get<Position>(e);
-        ref var dir = ref world.Get<Direction>(e);
-        ref var move = ref world.Get<MoveStats>(e);
-        ref var atk = ref world.Get<AttackStats>(e);
+        // Acessos defensivos: em ambientes de desenvolvimento podemos ter entidades legacy
+        // criadas antes de adicionar novos componentes. Evitar AccessViolation/segfault do Arch.
+        int charId = 0;
+        int mapId = 0;
+        Position position = default;
+        Direction direction = default;
+        MoveStats moveStats = default;
+        AttackStats attackStats = default;
+
+        if (world.Has<CharId>(e)) charId = world.Get<CharId>(e).Value;
+        if (world.Has<MapId>(e)) mapId = world.Get<MapId>(e).Value;
+        if (world.Has<Position>(e)) position = world.Get<Position>(e);
+        if (world.Has<Direction>(e)) direction = world.Get<Direction>(e);
+        if (world.Has<MoveStats>(e)) moveStats = world.Get<MoveStats>(e);
+        if (world.Has<AttackStats>(e)) attackStats = world.Get<AttackStats>(e);
 
         return new PlayerStateDto(
-            CharId: cid,
+            CharId: charId,
             EntityId: e.Id,
-            MapId: mid,
-            Position: pos,
-            Direction: dir,
-            MoveSpeed: move.Speed,
-            AttackCastTime: atk.CastTime,
-            AttackCooldown: atk.Cooldown
+            MapId: mapId,
+            Position: position,
+            Direction: direction,
+            MoveSpeed: moveStats.Speed,
+            AttackCastTime: attackStats.CastTime,
+            AttackCooldown: attackStats.Cooldown
         );
     }
 }

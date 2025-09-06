@@ -59,9 +59,10 @@ public sealed partial class PlayerLifecycleSystem(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error creating player for CharId {CharId}", dto.CharId);
+            var failingChar = dto?.CharId ?? enter.CharId;
+            logger.LogError(ex, "Error creating player for CharId {CharId}", failingChar);
             // garantir que a reserva seja liberada em caso de falha
-            intentForwarding?.TryRemoveReservation(dto.CharId);
+            intentForwarding?.TryRemoveReservation(failingChar);
             // limpar comando para não tentar de novo
             try { World.Destroy(commandEntity); } catch { /* swallow */ }
         }

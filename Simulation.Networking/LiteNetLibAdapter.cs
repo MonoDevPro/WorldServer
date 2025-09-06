@@ -80,9 +80,18 @@ public class LiteNetLibAdapter : IPlayerSnapshotPublisher, IMapSnapshotPublisher
     {
         if (_charIdToPeer.TryGetValue(joinAck.YourCharId, out var peer))
         {
+            // Log antes de serializar para evitar alocação extra em hot path
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug("JoinAck -> Char:{CharId} Peer:{PeerId} Entity:{EntityId} Others:{Others}",
+                    joinAck.YourCharId, peer.Id, joinAck.YourEntityId, joinAck.Others.Count);
+
             _writer.Reset();
             PacketProcessor.Write(_writer, joinAck);
             peer.Send(_writer, DeliveryMethod.ReliableOrdered);
+        }
+        else
+        {
+            _logger.LogWarning("JoinAck sem peer mapeado para CharId {CharId} (Entity {EntityId}, Others {Others})", joinAck.YourCharId, joinAck.YourEntityId, joinAck.Others.Count);
         }
     }
 
@@ -181,29 +190,28 @@ public class LiteNetLibAdapter : IPlayerSnapshotPublisher, IMapSnapshotPublisher
 
     public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
-        // A primeira intenção DEVE ser EnterIntent para associar o Peer ao CharId
-        var initialPosition = reader.Position;
+        // Peek message type
+        var start = reader.Position;
         var messageType = (MessageType)reader.GetByte();
-        reader.SetPosition(initialPosition);
 
         if (messageType == MessageType.EnterIntent)
         {
-            var charId = reader.GetByte(); // Pula o byte de tipo e lê o CharId
+            // Correctly read the int CharId following the type byte
+            var charId = reader.GetInt();
             _charIdToPeer[charId] = peer;
             _peerToCharId[peer] = charId;
-            reader.SetPosition(initialPosition);
+        }
+        else if (!_peerToCharId.ContainsKey(peer))
+        {
+            // First packet from an unidentified peer must be EnterIntent
+            Console.WriteLine($"Received non-enter packet from unidentified peer {peer.Id}. Discarding.");
+            reader.Recycle();
+            return;
         }
 
-        // Processa a intenção somente se o jogador já estiver registrado (associado)
-        if (_peerToCharId.ContainsKey(peer))
-        {
-            PacketProcessor.ProcessIntent(reader, _intentHandler);
-        }
-        else
-        {
-            Console.WriteLine($"Received package from a non-identified peer: {peer.Id}. Package Discarded.");
-        }
-        
+        // Reset to allow central processor to re-read
+        reader.SetPosition(start);
+        PacketProcessor.ProcessIntent(reader, _intentHandler);
         reader.Recycle();
     }
 
