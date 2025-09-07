@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://player"]
 
-[ext_resource type="Script" path="res://Scripts/Rendering/PlayerView.cs" id=1]
+[ext_resource type="Script" path="res://Scripts/Rendering/PlayerView.cs" id="1_rendering_script"]
 
 [node name="Player" type="Node2D"]
-script = ExtResource( 1 )
+script = ExtResource("1_rendering_script")
