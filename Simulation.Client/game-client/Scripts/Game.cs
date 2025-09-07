@@ -41,6 +41,10 @@ public partial class Game : Node
     {
         _worldRoot = GetNode<Node2D>("World");
         
+        // Add demo info
+        var demo = new Demo();
+        AddChild(demo);
+        
         SetupUI();
         InitializeServices();
         InitializeSystems();
