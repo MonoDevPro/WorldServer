@@ -1,27 +1,56 @@
-using LiteNetLib;
-using LiteNetLib.Utils;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Simulation.Application.Options;
-using Simulation.Application.Ports;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Network.Adapters.LiteNet;
+using Network.Adapters.Serialization;
 using Simulation.Application.Ports.ECS.Publishers;
+using Simulation.Application.Ports.Network;
+using Simulation.Application.Ports.Network.Inbound;
+using Simulation.Application.Ports.Network.Outbound;
+using Simulation.Networking.Services;
 
 namespace Simulation.Networking;
 
 public static class ServicesNetworkExtensions
 {
-    public static IServiceCollection AddNetwork(this IServiceCollection services)
+    
+    public static IServiceCollection AddClientNetworking(this IServiceCollection services)
     {
-        services.AddSingleton<LiteNetLibAdapter>(sp => new LiteNetLibAdapter(
-            sp.GetRequiredService<Simulation.Application.Ports.ECS.Handlers.IPlayerIntentHandler>(),
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Simulation.Application.Options.NetworkOptions>>(),
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Simulation.Application.Options.SpatialOptions>>(),
-            sp.GetRequiredService<Simulation.Application.Ports.ECS.Utils.Indexers.ISpatialIndex>(),
-            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LiteNetLibAdapter>>()
-        ));
-        services.AddSingleton<IPlayerSnapshotPublisher>(sp => sp.GetRequiredService<LiteNetLibAdapter>());
-        services.AddSingleton<IMapSnapshotPublisher>(sp => sp.GetRequiredService<LiteNetLibAdapter>());
-        services.AddSingleton<INetEventListener>(sp => sp.GetRequiredService<LiteNetLibAdapter>());
+        services.RegisterCommonServices();
+        
+        // Aplicações -> Portas de entrada
+        services.AddSingleton<IClientNetworkApp, ClientNetworkApp>();
+        
+        // Serviços de rede // Portas de entrada
+        services.AddSingleton<IClientNetworkService, LiteNetLibClientAdapter>();
+        
+        return services;
+    }
+    
+    public static IServiceCollection AddServerNetworking(this IServiceCollection services)
+    {
+        services.RegisterCommonServices();
+        
+        // Aplicações -> Portas de entrada
+        services.AddSingleton<IServerNetworkApp, ServerApp>();
+        
+        // Serviços de rede // Portas de entrada
+        services.AddSingleton<IServerNetworkService, LiteNetLibServerAdapter>();
+        
+        services.AddSingleton<IPlayerSnapshotPublisher, SnapshotPublisher>();
+        
+        return services;
+    }
+    
+    private static IServiceCollection RegisterCommonServices(this IServiceCollection services)
+    {
+        services.AddSingleton<IPlayerConnectionMap, PeerCharMap>();
+        services.TryAddSingleton<INetworkEventBus, NetworkEventBus>();
+        services.TryAddSingleton<INetworkSerializer, SerializerAdapter>();
+        services.TryAddSingleton<LiteNetLibConnectionManagerAdapter>();
+        services.TryAddSingleton<IConnectionManager>(sp => sp.GetRequiredService<LiteNetLibConnectionManagerAdapter>());
+        services.TryAddSingleton<LiteNetLibPacketHandlerAdapter>();
+        services.TryAddSingleton<IPacketSender, LiteNetLibPacketSenderAdapter>();
+        services.TryAddSingleton<IPacketRegistry, LiteNetLibPacketRegistryAdapter>();
         
         return services;
     }

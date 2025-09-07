@@ -11,19 +11,19 @@ namespace Simulation.Application.Services.ECS.Publishers;
 public sealed partial class SnapshotForwarding : BaseSystem<World, float>, IPlayerSnapshotPublisher, IMapSnapshotPublisher
 {
     private readonly IPlayerSnapshotPublisher _playerPublisher;
-    private readonly IMapSnapshotPublisher _mapPublisher;
+    private readonly IMapSnapshotPublisher? _mapPublisher;
     private readonly ILogger<SnapshotForwarding> _logger;
     
-    [Event] public void Publish(in LoadMapSnapshot snapshot) => _mapPublisher.Publish(in snapshot);
-    [Event] public void Publish(in UnloadMapSnapshot snapshot) => _mapPublisher.Publish(in snapshot);
-    [Event] public void Publish(JoinAckDto s) => _playerPublisher.Publish(s);
-    [Event] public void Publish(PlayerJoinedDto s) => _playerPublisher.Publish(s);
-    [Event] public void Publish(PlayerLeftDto s) => _playerPublisher.Publish(s);
+    [Event] public void Publish(in LoadMapSnapshot snapshot) => _mapPublisher?.Publish(in snapshot);
+    [Event] public void Publish(in UnloadMapSnapshot snapshot) => _mapPublisher?.Publish(in snapshot);
+    [Event] public void Publish(in JoinAckSnapshot s) => _playerPublisher.Publish(s);
+    [Event] public void Publish(in PlayerJoinedSnapshot s) => _playerPublisher.Publish(s);
+    [Event] public void Publish(in PlayerLeftSnapshot s) => _playerPublisher.Publish(s);
     [Event] public void Publish(in MoveSnapshot s) => _playerPublisher.Publish(in s);
     [Event] public void Publish(in AttackSnapshot s) => _playerPublisher.Publish(in s);
     [Event] public void Publish(in TeleportSnapshot s) => _playerPublisher.Publish(in s);
 
-    public SnapshotForwarding(World world, IPlayerSnapshotPublisher playerPublisher, IMapSnapshotPublisher mapPublisher, ILogger<SnapshotForwarding> logger) : base(world)
+    public SnapshotForwarding(World world, IPlayerSnapshotPublisher playerPublisher, ILogger<SnapshotForwarding> logger, IMapSnapshotPublisher? mapPublisher = null) : base(world)
     {
         _playerPublisher = playerPublisher;
         _mapPublisher = mapPublisher;
@@ -34,7 +34,7 @@ public sealed partial class SnapshotForwarding : BaseSystem<World, float>, IPlay
     {
         Unhook();
         _playerPublisher.Dispose();
-        _mapPublisher.Dispose();
+        _mapPublisher?.Dispose();
         base.Dispose();
     }
 }

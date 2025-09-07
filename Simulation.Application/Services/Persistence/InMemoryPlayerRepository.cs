@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Simulation.Application.Ports.Loop;
 using Simulation.Application.Ports.Persistence;
 using Simulation.Application.Ports.Persistence.Persistence;
 using Simulation.Domain.Components;
@@ -22,11 +23,8 @@ public sealed class InMemoryPlayerRepository : DefaultRepository<int, PlayerTemp
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
-
-    /// <summary>
-    /// Inicializa o repositório (seed). Chame durante a startup.
-    /// </summary>
-    public void Initialize()
+    
+    public Task InitializeAsync(CancellationToken ct = default)
     {
         try
         {
@@ -40,6 +38,7 @@ public sealed class InMemoryPlayerRepository : DefaultRepository<int, PlayerTemp
             _logger.LogError(ex, "CharTemplateRepository: Initialization failed.");
             throw;
         }
+        return Task.CompletedTask;
     }
 
     private void SeedChars()
@@ -66,5 +65,15 @@ public sealed class InMemoryPlayerRepository : DefaultRepository<int, PlayerTemp
         }
 
         _logger.LogDebug("SeedChars: Finished seeding character templates.");
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        return ValueTask.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken ct = default)
+    {
+        return Task.CompletedTask;
     }
 }

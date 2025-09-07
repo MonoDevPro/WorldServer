@@ -9,5 +9,5 @@ namespace Simulation.Application.Ports.ECS.Utils;
 /// </summary>
 public interface IStateSnapshotBuilder
 {
-    PlayerStateDto BuildCharState(World world, Entity entity);
+    PlayerState BuildCharState(World world, Entity entity);
 }

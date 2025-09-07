@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Simulation.Application.DTOs.Intents;
 using Simulation.Application.Ports.ECS.Handlers;
+using Simulation.Application.Ports.Loop;
 using Simulation.Application.Ports.Persistence;
 using Simulation.Application.Ports.Persistence.Persistence;
 using Simulation.Domain.Templates;
@@ -17,32 +18,7 @@ public sealed class InMemoryMapRepository(
     /// </summary>
     public void Initialize()
     {
-        try
-        {
-            logger.LogInformation("MapTemplateRepository: Initialization started.");
-            SeedMapTemplates();
-            var total = this.GetAll().Count();
-            logger.LogInformation("MapTemplateRepository: Initialization completed. Templates seeded: {Count}", total);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "MapTemplateRepository: Initialization failed.");
-            throw;
-        }
         
-        // Mandar os mapas pra dentro do ECS.
-        
-        foreach (var map in this.GetAll())
-        {
-            try
-            {
-                mapIntentHandler.HandleIntent(new LoadMapIntent(map.MapId), map);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "MapTemplateRepository: Failed to create Map (MapId={MapId}) in ECS.", map.MapId);
-            }
-        }
         
     }
 
@@ -92,5 +68,48 @@ public sealed class InMemoryMapRepository(
         }
 
         logger.LogDebug("SeedMapTemplates: Finished seeding map templates.");
+    }
+
+    public Task InitializeAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            logger.LogInformation("MapTemplateRepository: Initialization started.");
+            SeedMapTemplates();
+            var total = this.GetAll().Count();
+            logger.LogInformation("MapTemplateRepository: Initialization completed. Templates seeded: {Count}", total);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "MapTemplateRepository: Initialization failed.");
+            throw;
+        }
+        
+        // Mandar os mapas pra dentro do ECS.
+        
+        foreach (var map in this.GetAll())
+        {
+            try
+            {
+                mapIntentHandler.HandleIntent(new LoadMapIntent(map.MapId), map);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "MapTemplateRepository: Failed to create Map (MapId={MapId}) in ECS.", map.MapId);
+            }
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken ct = default)
+    {
+        // No special stop logic needed for in-memory repository.
+        return Task.CompletedTask;
+    }
+    
+    public ValueTask DisposeAsync()
+    {
+        // No unmanaged resources to dispose.
+        return ValueTask.CompletedTask;
     }
 }

@@ -57,12 +57,12 @@ public sealed partial class GridMovementSystem(
         {
             logger.LogWarning("CharId {charId}: Movimento inválido de {start} para {target}.", charId.Value, startPos, targetPos);
             // Envia um snapshot de reconciliação para corrigir a posição do cliente, caso ele tenha previsto o movimento.
-            EventBus.Send(new MoveSnapshot(charId.Value, startPos, startPos));
+            EventBus.Send(new MoveSnapshot { CharId = charId.Value, Old = startPos, New = startPos });
             World.Remove<MoveIntent>(entity);
             return;
         }
 
-    var distance = MathF.Sqrt(MathF.Pow(targetPos.X - startPos.X, 2) + MathF.Pow(targetPos.Y - startPos.Y, 2));
+        var distance = MathF.Sqrt(MathF.Pow(targetPos.X - startPos.X, 2) + MathF.Pow(targetPos.Y - startPos.Y, 2));
         var speed = stats.Speed > 0 ? stats.Speed : 1f;
         var duration = distance / speed;
 
@@ -76,7 +76,7 @@ public sealed partial class GridMovementSystem(
         World.Add(entity, moveAction);
 
         // Dispara o evento para a rede, notificando que o movimento começou.
-        EventBus.Send(new MoveSnapshot(charId.Value, startPos, targetPos));
+        EventBus.Send(new MoveSnapshot { CharId = charId.Value, Old = startPos, New = targetPos });
         
         World.Remove<MoveIntent>(entity);
         logger.LogInformation("CharId {id}: iniciou movimento de {start} para {target}.", charId.Value, startPos, targetPos);

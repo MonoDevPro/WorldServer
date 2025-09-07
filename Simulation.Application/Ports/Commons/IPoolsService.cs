@@ -11,8 +11,8 @@ public interface IPoolsService
     PlayerTemplate RentTemplate();
     void ReturnTemplate(PlayerTemplate template);
     
-    PlayerStateDto RentPlayerStateDto();
-    void ReturnPlayerStateDto(PlayerStateDto template);
+    PlayerState RentPlayerStateDto();
+    void ReturnPlayerStateDto(PlayerState template);
 
     PlayerTemplate[] RentArray(int minLength);
     void ReturnArray(PlayerTemplate[] array, bool clearArray = false);

@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Simulation.Application.Services.Loop;
 using Simulation.Server;
 using Xunit;
 // Add the namespace where AddServerServices is defined
@@ -15,7 +16,7 @@ public class EndToEndNetworkingTests
         var services = new ServiceCollection();
         services.AddServerServices();
         var provider = services.BuildServiceProvider();
-        var server = provider.GetRequiredService<ServerLoop>();
+        var server = provider.GetRequiredService<GameLoop>();
 
         using var cts = new CancellationTokenSource(200);
         await Assert.ThrowsAnyAsync<TaskCanceledException>(async () =>

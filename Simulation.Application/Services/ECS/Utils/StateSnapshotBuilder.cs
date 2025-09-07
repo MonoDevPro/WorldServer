@@ -7,7 +7,7 @@ namespace Simulation.Application.Services.ECS.Utils;
 
 public class StateSnapshotBuilder : IStateSnapshotBuilder
 {
-    public PlayerStateDto BuildCharState(World world, Entity e)
+    public PlayerState BuildCharState(World world, Entity e)
     {
         // Acessos defensivos: em ambientes de desenvolvimento podemos ter entidades legacy
         // criadas antes de adicionar novos componentes. Evitar AccessViolation/segfault do Arch.
@@ -25,15 +25,15 @@ public class StateSnapshotBuilder : IStateSnapshotBuilder
         if (world.Has<MoveStats>(e)) moveStats = world.Get<MoveStats>(e);
         if (world.Has<AttackStats>(e)) attackStats = world.Get<AttackStats>(e);
 
-        return new PlayerStateDto(
-            CharId: charId,
-            EntityId: e.Id,
-            MapId: mapId,
-            Position: position,
-            Direction: direction,
-            MoveSpeed: moveStats.Speed,
-            AttackCastTime: attackStats.CastTime,
-            AttackCooldown: attackStats.Cooldown
-        );
+        return new PlayerState
+        {
+            CharId = charId,
+            MapId = mapId,
+            Position = position,
+            Direction = direction,
+            MoveSpeed = moveStats.Speed,
+            AttackCastTime = attackStats.CastTime,
+            AttackCooldown = attackStats.Cooldown
+        };
     }
 }

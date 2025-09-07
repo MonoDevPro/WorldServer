@@ -3,6 +3,9 @@ using Simulation.Domain.Components;
 namespace Simulation.Application.DTOs.Snapshots;
 
 // Character Snapshots
-public record struct AttackSnapshot(int CharId);
-public record struct MoveSnapshot(int CharId, Position Old, Position New);
-public record struct TeleportSnapshot(int CharId, int MapId, Position Position);
+public struct JoinAckSnapshot { public int YourCharId, MapId; public List<PlayerState> Others; }
+public struct PlayerJoinedSnapshot { public PlayerState NewPlayer; }
+public struct PlayerLeftSnapshot{ public PlayerState LeftPlayer; }
+public struct AttackSnapshot { public int CharId; }
+public struct MoveSnapshot { public int CharId; public Position Old, New; }
+public struct TeleportSnapshot { public int CharId, MapId; public Position Position; }

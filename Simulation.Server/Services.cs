@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Network.Adapters;
 using Simulation.Application;
 using Simulation.Application.Options;
-using Simulation.Application.Ports.ECS.Publishers;
 using Simulation.Application.Services;
+using Simulation.Application.Services.Loop;
 using Simulation.Networking;
 using Simulation.Persistence;
 using Simulation.Pooling;
@@ -22,19 +24,27 @@ public static class Services
             .Build();
         
         services.Configure<NetworkOptions>(configuration.GetSection(NetworkOptions.SectionName));
+        services.AddSingleton<NetworkOptions>(sp => 
+            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<NetworkOptions>>().Value);
         services.Configure<SpatialOptions>(configuration.GetSection(SpatialOptions.SectionName));
+        services.AddSingleton<SpatialOptions>(sp => 
+            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SpatialOptions>>().Value);
         services.Configure<WorldOptions>(configuration.GetSection(WorldOptions.SectionName));
+        services.AddSingleton<WorldOptions>(sp => 
+            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<WorldOptions>>().Value);
         
         services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Trace));
 
         services.AddApplication(configuration);
         services.AddPersistence();
-        services.AddNetwork();
         services.AddPoolingServices();
+        services.AddServerNetworking();
+        
+        services.AddSingleton<GameLoop>();
+        services.TryAddSingleton<PerformanceMonitor>();
+
 
         // Registra os serviços específicos da aplicação Console
-        services.AddSingleton<PerformanceMonitor>();
-        services.AddSingleton<ServerLoop>();
 
         return services;
     }

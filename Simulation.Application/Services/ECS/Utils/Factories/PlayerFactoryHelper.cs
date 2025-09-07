@@ -6,7 +6,7 @@ using Simulation.Domain.Templates;
 
 namespace Simulation.Application.Services.ECS.Utils.Factories;
 
-public class PlayerFactoryHelper : IFactoryHelper<PlayerStateDto>
+public class PlayerFactoryHelper : IFactoryHelper<PlayerState>
 {
     // Base archetype: minimum components every player must have
     private static readonly ComponentType[] ArchetypeComponents = new[]
@@ -20,7 +20,7 @@ public class PlayerFactoryHelper : IFactoryHelper<PlayerStateDto>
     };
 
     public ComponentType[] GetArchetype() => ArchetypeComponents;
-    public void PopulateComponents(PlayerStateDto data, Span<Action<World, Entity>> setters)
+    public void PopulateComponents(PlayerState data, Span<Action<World, Entity>> setters)
     {
         setters[0] = (world, e) => world.Set(e, new CharId { Value = data.CharId });
         setters[1] = (world, e) => world.Set(e, new MapId { Value = data.MapId });
@@ -34,7 +34,7 @@ public class PlayerFactoryHelper : IFactoryHelper<PlayerStateDto>
         setters[7] = (world, e) => world.Add<InCombat>(e);
     }
 
-    public void ApplyTo(World world, Entity e, PlayerStateDto data)
+    public void ApplyTo(World world, Entity e, PlayerState data)
     {
         world.Set<
             CharId,

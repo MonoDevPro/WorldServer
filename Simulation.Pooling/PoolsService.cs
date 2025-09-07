@@ -10,12 +10,12 @@ public class PoolsService : IPoolsService
 {
     private readonly ObjectPool<List<PlayerTemplate>> _listPool;
     private readonly ObjectPool<PlayerTemplate> _templatePool;
-    private readonly ObjectPool<PlayerStateDto> _stateDtoPool;
+    private readonly ObjectPool<PlayerState> _stateDtoPool;
     private readonly ArrayPool<PlayerTemplate> _arrayPool;
 
     public PoolsService(ObjectPool<List<PlayerTemplate>> listPool,
         ObjectPool<PlayerTemplate> templatePool,
-        ObjectPool<PlayerStateDto> stateDtoPool,
+        ObjectPool<PlayerState> stateDtoPool,
         ArrayPool<PlayerTemplate> arrayPool)
     {
         _listPool = listPool;
@@ -30,8 +30,8 @@ public class PoolsService : IPoolsService
     public PlayerTemplate RentTemplate() => _templatePool.Get();
     public void ReturnTemplate(PlayerTemplate template) => _templatePool.Return(template);
     
-    public PlayerStateDto RentPlayerStateDto() => _stateDtoPool.Get();
-    public void ReturnPlayerStateDto(PlayerStateDto template) => _stateDtoPool.Return(template);
+    public PlayerState RentPlayerStateDto() => _stateDtoPool.Get();
+    public void ReturnPlayerStateDto(PlayerState template) => _stateDtoPool.Return(template);
 
     public PlayerTemplate[] RentArray(int minLength) => _arrayPool.Rent(minLength);
     public void ReturnArray(PlayerTemplate[] array, bool clearArray = false) => _arrayPool.Return(array, clearArray);

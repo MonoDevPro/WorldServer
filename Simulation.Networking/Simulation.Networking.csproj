@@ -7,6 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\HexagonalNetwork\Network.Adapters\Network.Adapters.csproj" />
       <ProjectReference Include="..\Simulation.Application\Simulation.Application.csproj" />
     </ItemGroup>
 

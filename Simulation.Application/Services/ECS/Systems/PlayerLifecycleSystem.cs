@@ -20,7 +20,7 @@ public sealed partial class PlayerLifecycleSystem(
     IMapEntityProvider mapProvider,
     IPlayerIndex index,
     IPlayerRepository playerRepository,
-    IFactoryHelper<PlayerStateDto> factory,
+    IFactoryHelper<PlayerState> factory,
     IntentForwarding? intentForwarding,
     ILogger<PlayerLifecycleSystem> logger) : BaseSystem<World, float>(world: world)
 {
@@ -29,7 +29,7 @@ public sealed partial class PlayerLifecycleSystem(
     [All<EnterIntent>]
     private void OnEnterRequest(in Entity commandEntity, ref EnterIntent enter)
     {
-        PlayerStateDto? dto = null;
+        PlayerState? dto = null;
         try
         {
             // 3. Carregar o PlayerTemplate a partir do repositório
@@ -42,7 +42,7 @@ public sealed partial class PlayerLifecycleSystem(
             }
             
             // 4. Criar o DTO a partir do template carregado (o servidor é a fonte da verdade)
-            dto = PlayerStateDto.CreateFromTemplate(template);
+            dto = PlayerState.CreateFromTemplate(template);
             
             // Cria a entidade final no World
             var archetype = factory.GetArchetype();
@@ -101,7 +101,7 @@ public sealed partial class PlayerLifecycleSystem(
     }
 
     // Finaliza o fluxo de "join": registra, constrói snapshots, envia mensagens e libera reserva.
-    private void FinalizeJoin(in EnterIntent enter, in PlayerStateDto dto, Entity playerEntity)
+    private void FinalizeJoin(in EnterIntent enter, in PlayerState dto, Entity playerEntity)
     {
         // 1) Registrar no índice (deve ocorrer antes de consultar outros jogadores)
         index.Register(dto.CharId, playerEntity);
@@ -111,7 +111,7 @@ public sealed partial class PlayerLifecycleSystem(
 
         // 3) obter outros players no mapa (exclui o próprio)
         var othersEntities = mapProvider.GetEntitiesInMap(World, dto.MapId);
-        var others = new List<PlayerStateDto>();
+        var others = new List<PlayerState>();
         foreach (var e in othersEntities)
         {
             if (e.Id == playerEntity.Id) continue;
@@ -121,13 +121,13 @@ public sealed partial class PlayerLifecycleSystem(
 
         // 4) montar e enviar JoinAck para quem entrou
         // Necessário que enter.SessionId (ou dto.SessionId) exista para indicar destino
-        var joinAck = new JoinAckDto(dto.CharId, playerEntity.Id, dto.MapId, others);
+        var joinAck = new JoinAckSnapshot { MapId = dto.MapId, YourCharId = dto.CharId, Others = others };
         // Encaminha evento para a camada de rede (handler do EventBus deve saber enviar apenas ao session correto).
         // Recomendo que o JoinAck contenha a SessionId ou que o EventBus handler mapeie CharId->SessionId.
         EventBus.Send(joinAck); 
 
         // 5) notificar os demais do mapa (pode ser broadcast filtrado pelo handler do EventBus)
-        var joinedMsg = new PlayerJoinedDto(newPlayer);
+        var joinedMsg = new PlayerJoinedSnapshot { NewPlayer = newPlayer };
         EventBus.Send(joinedMsg);
 
         // 6) liberar reserva (sucesso)
@@ -144,7 +144,7 @@ public sealed partial class PlayerLifecycleSystem(
         var playerleft = snapshotBuilder.BuildCharState(World, playerEntity);
 
         // 3) notificar os demais do mapa
-        var leftMsg = new PlayerLeftDto(playerleft);
+        var leftMsg = new PlayerLeftSnapshot {  LeftPlayer = playerleft };
         EventBus.Send(leftMsg);
     }
 }

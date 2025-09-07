@@ -8,8 +8,8 @@ using Simulation.Application.Ports.ECS;
 using Simulation.Application.Ports.ECS.Handlers;
 using Simulation.Application.Ports.ECS.Utils;
 using Simulation.Application.Ports.ECS.Utils.Indexers;
+using Simulation.Application.Ports.Loop;
 using Simulation.Application.Ports.Persistence;
-using Simulation.Application.Ports.Persistence.Persistence;
 using Simulation.Application.Services.ECS;
 using Simulation.Application.Services.ECS.Handlers;
 using Simulation.Application.Services.ECS.Publishers;
@@ -26,11 +26,6 @@ public static class ServiceCollection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration configuration)
     {
-        // Configure options
-        services.AddOptions<NetworkOptions>().Bind(configuration.GetSection(NetworkOptions.SectionName));
-        services.AddOptions<SpatialOptions>().Bind(configuration.GetSection(SpatialOptions.SectionName));
-        services.AddOptions<WorldOptions>().Bind(configuration.GetSection(WorldOptions.SectionName));
-        
         // Default Persistence
         services.AddSingleton<InMemoryMapRepository>();
         services.AddSingleton<InMemoryPlayerRepository>();
@@ -45,7 +40,7 @@ public static class ServiceCollection
         services.AddSingleton<IStateSnapshotBuilder, StateSnapshotBuilder>();
         services.AddSingleton<IMapIndex, MapIndex>();
         services.AddSingleton<IPlayerIndex, PlayerIndex>();
-        services.AddSingleton<IFactoryHelper<PlayerStateDto>, PlayerFactoryHelper>();
+        services.AddSingleton<IFactoryHelper<PlayerState>, PlayerFactoryHelper>();
         services.AddSingleton<IFactoryHelper<MapTemplate>, MapFactoryHelper>();
         services.AddSingleton<IMapServiceIndex, SpatialMapIndex>();
         
@@ -78,8 +73,18 @@ public static class ServiceCollection
         // --- Pipeline e Runner ---
         // O SimulationPipeline irá injetar todos os sistemas registrados acima na ordem correta.
         services.AddSingleton<SimulationPipeline>();
-        services.AddSingleton<SimulationRunner>();
         
+        services.AddGameService<SimulationRunner>();
+        
+        return services;
+    }
+    
+    public static IServiceCollection AddGameService<T>(this IServiceCollection services) 
+        where T : class, IInitializable, IUpdatable
+    {
+        services.AddSingleton<T>();
+        services.AddSingleton<IInitializable>(sp => sp.GetRequiredService<T>());
+        services.AddSingleton<IUpdatable>(sp => sp.GetRequiredService<T>());
         return services;
     }
 }

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Simulation.Application.Ports.Persistence.Persistence;
-using Simulation.Networking;
+using Simulation.Application.Services.Loop;
 using Simulation.Server;
 
 // 2. Construção do Container de Injeção de Dependência
@@ -14,8 +13,8 @@ await using var provider = services.BuildServiceProvider();
 
 // 3. Resolução dos Serviços Principais
 
-var loop = provider.GetRequiredService<ServerLoop>();
 var logger = provider.GetRequiredService<ILogger<Program>>();
+var gameloop = provider.GetRequiredService<GameLoop>();
 
 // 4. Configuração do Encerramento Graceful (Ctrl+C)
 using var cts = new CancellationTokenSource();
@@ -29,15 +28,9 @@ Console.CancelKeyPress += (sender, eventArgs) =>
 // 5. Execução do Ciclo de Vida do Servidor
 try
 {
-    // Initialize Seeds
-    using (var scope = provider.CreateScope())
-    {
-        var inits = scope.ServiceProvider.GetServices<IInitializable>();
-        foreach (var init in inits) init.Initialize();
-    }
-    
     // Etapa 2: Executa o loop principal do jogo
-    await loop.RunAsync(cts.Token).ConfigureAwait(false);
+    logger.LogInformation("Iniciando o servidor...");
+    await gameloop.RunAsync(cts.Token).ConfigureAwait(false);
 }
 catch (OperationCanceledException)
 {
@@ -51,6 +44,6 @@ finally
 {
     // Etapa 3: Garante o descarte de recursos de forma limpa
     logger.LogInformation("Iniciando o processo de finalização...");
-    await loop.DisposeAsync().ConfigureAwait(false);
+    await gameloop.DisposeAsync().ConfigureAwait(false);
     logger.LogInformation("Servidor finalizado.");
 }

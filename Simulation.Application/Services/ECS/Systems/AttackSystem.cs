@@ -3,7 +3,6 @@ using Arch.Core;
 using Arch.System;
 using Arch.System.SourceGenerator;
 using Microsoft.Extensions.Logging;
-using Simulation.Application.DTOs;
 using Simulation.Application.DTOs.Intents;
 using Simulation.Application.DTOs.Snapshots;
 using Simulation.Application.Ports.ECS.Utils.Indexers;
@@ -45,7 +44,7 @@ namespace Simulation.Application.Services.ECS.Systems
             World.Add(entity, attackAction);
             
             // 2. Dispara um evento para a rede, notificando que o ataque começou.
-            var attackSnapshot = new AttackSnapshot(cmd.CharId);
+            var attackSnapshot = new AttackSnapshot { CharId = cmd.CharId };
             EventBus.Send(in attackSnapshot);
             
             // 3. Remove o componente de intenção, pois já foi processado.
