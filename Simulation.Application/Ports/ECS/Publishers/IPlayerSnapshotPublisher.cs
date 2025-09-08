@@ -1,5 +1,4 @@
-using Simulation.Application.DTOs;
-using Simulation.Application.DTOs.Snapshots;
+using Simulation.Domain;
 
 namespace Simulation.Application.Ports.ECS.Publishers;
 

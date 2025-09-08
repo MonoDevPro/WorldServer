@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Arch.Core;
-using Simulation.Domain.Components;
-using Simulation.Persistence.Char;
+using Simulation.Domain;
+using Simulation.Persistence;
+using Simulation.Persistence.InMemory;
 using Xunit;
 
 namespace Simulation.Core.Tests;

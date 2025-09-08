@@ -4,7 +4,7 @@ using Godot;
 using GameClient.Scripts.Infrastructure;
 using GameClient.Scripts.Network.Packets;
 using Simulation.Application.DTOs;
-using Simulation.Domain.Components;
+using Simulation.Domain;
 
 namespace GameClient.Scripts.State;
 

@@ -1,6 +1,5 @@
 using Simulation.Application.DTOs;
-using Simulation.Application.DTOs.Snapshots;
-using Simulation.Domain.Components;
+using Simulation.Domain;
 
 namespace GameClient.Scripts.Network.Packets;
 

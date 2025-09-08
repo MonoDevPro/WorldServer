@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Simulation.Application.Services;
+using Simulation.Application.Services.Loop;
 using Xunit;
 
 namespace Simulation.Core.Tests;

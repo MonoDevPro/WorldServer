@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Simulation.Application.Options;
 using Simulation.Application.Ports.Loop;
 
@@ -15,32 +13,19 @@ public sealed class GameLoop : IAsyncDisposable
     private readonly double _tickSeconds;
     private readonly double _maxDeltaTime;
     private readonly Stopwatch _mainTimer = new();
-    private readonly ILogger<GameLoop> _logger;
 
     private readonly IOrderedInitializable[] _initializables;
     private readonly IOrderedUpdatable[] _updatables;
     private readonly PerformanceMonitor? _performanceMonitor;
 
-    // ... (Delegates de logging permanecem os mesmos, estão excelentes) ...
-    private static readonly Action<ILogger, Exception?> LogSimulationUpdateError =
-        LoggerMessage.Define(LogLevel.Error, new EventId(2, nameof(LogSimulationUpdateError)), "Error during SimulationRunner.Update.");
-    private static readonly Action<ILogger, double, double, Exception?> LogTickTooLong =
-        LoggerMessage.Define<double, double>(LogLevel.Warning,
-            new EventId(3, nameof(LogTickTooLong)),
-            "Simulation tick took longer than tick interval: {ElapsedMs} ms (tick {TickMs} ms).");
-
     public GameLoop(
-        ILogger<GameLoop> logger,
-        IOptions<LoopOptions> options, // Injeta as opções de configuração
+        GameLoopOptions options, // Injeta as opções de configuração
         IEnumerable<IInitializable> allInitializables, // Recebe todos, depois filtra e ordena
         IEnumerable<IUpdatable> allUpdatables, // Recebe todos, depois filtra e ordena
         PerformanceMonitor? performanceMonitor = null)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        var loopOptions = options?.Value ?? throw new ArgumentNullException(nameof(options));
-
-        _tickSeconds = 1.0 / loopOptions.TicksPerSecond;
-        _maxDeltaTime = loopOptions.MaxDeltaTime;
+        _tickSeconds = 1.0 / options.TicksPerSecond;
+        _maxDeltaTime = options.MaxDeltaTime;
 
         // **GARANTIA DE ORDEM**
         // Filtra e ordena os serviços que implementam as interfaces ordenadas.
@@ -56,29 +41,21 @@ public sealed class GameLoop : IAsyncDisposable
 
         _performanceMonitor = performanceMonitor;
 
-        _logger.LogInformation("Game Loop configured for {TicksPerSecond} TPS ({TickSeconds:F4}s per tick)",
-            loopOptions.TicksPerSecond, _tickSeconds);
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Starting initialization for {Count} ordered services...", _initializables.Length);
         foreach (var init in _initializables)
         {
             try
             {
-                _logger.LogDebug("Initializing {TypeName} (Order: {Order})...", init.GetType().Name, init.Order);
                 await init.InitializeAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during initialization of {TypeName}", init.GetType().Name);
                 throw;
             }
         }
-        _logger.LogInformation("Initialization complete.");
-
-        _logger.LogInformation("Entering main simulation loop...");
         _mainTimer.Start();
 
         double accumulator = 0.0;
@@ -112,7 +89,6 @@ public sealed class GameLoop : IAsyncDisposable
                     }
                     catch (Exception ex)
                     {
-                        LogSimulationUpdateError(_logger, ex);
                     }
                     finally
                     {
@@ -122,7 +98,6 @@ public sealed class GameLoop : IAsyncDisposable
 
                         if (tickDurationMs > _tickSeconds * 1000)
                         {
-                            LogTickTooLong(_logger, tickDurationMs, _tickSeconds * 1000, null);
                         }
                     }
 
@@ -150,7 +125,6 @@ public sealed class GameLoop : IAsyncDisposable
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("RunAsync canceled via token.");
             throw; // Propaga a exceção para que o Host saiba que foi um cancelamento normal.
         }
         finally
@@ -161,8 +135,6 @@ public sealed class GameLoop : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        _logger.LogInformation("Shutting down server loop...");
-
         // **ROBUSTEZ MELHORADA**
         // Inverte a ordem para o shutdown (LIFO - Last In, First Out).
         // Envolve cada chamada em try-catch para garantir que todos os serviços tentem parar.
@@ -174,7 +146,6 @@ public sealed class GameLoop : IAsyncDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error while stopping service {TypeName}", service.GetType().Name);
             }
         }
         
@@ -186,12 +157,10 @@ public sealed class GameLoop : IAsyncDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error while disposing service {TypeName}", service.GetType().Name);
             }
         }
 
         _performanceMonitor?.Dispose();
         _mainTimer.Stop();
-        _logger.LogInformation("Server shutdown complete.");
     }
 }

@@ -19,7 +19,6 @@
     <ProjectReference Include="../Simulation.Server/Simulation.Server.csproj" />
     <ProjectReference Include="..\Simulation.Application\Simulation.Application.csproj" />
     <ProjectReference Include="..\Simulation.Domain\Simulation.Domain.csproj" />
-    <ProjectReference Include="..\Simulation.Networking\Simulation.Networking.csproj" />
     <ProjectReference Include="..\Simulation.Persistence\Simulation.Persistence.csproj" />
     <ProjectReference Include="..\Simulation.Client\Simulation.Client.csproj" />
   </ItemGroup>

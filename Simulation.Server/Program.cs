@@ -1,17 +1,28 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Simulation.Application.Ports.Persistence;
 using Simulation.Application.Services.Loop;
+using Simulation.Persistence;
+using Simulation.Persistence.Configurations;
 using Simulation.Server;
 
-// 2. Construção do Container de Injeção de Dependência
 var services = new ServiceCollection();
-// Adiciona os serviços do servidor
 services.AddServerServices();
 
-// Constrói o provedor de serviços
 await using var provider = services.BuildServiceProvider();
 
-// 3. Resolução dos Serviços Principais
+var executorQueue = provider.GetRequiredService<IBackgroundTaskQueue>();
+executorQueue.QueueBackgroundWorkItem(async (sp, ct) =>
+{
+    var dbContext = sp.GetRequiredService<SimulationDbContext>();
+    await DataSeeder.SeedDatabaseAsync(dbContext);
+    var count = await dbContext.PlayerTemplates.CountAsync(ct) + await dbContext.MapTemplates.CountAsync(ct);
+    
+    var logger = sp.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation("Número de entidades no banco de dados: {Count}", count);
+});
+
 
 var logger = provider.GetRequiredService<ILogger<Program>>();
 var gameloop = provider.GetRequiredService<GameLoop>();

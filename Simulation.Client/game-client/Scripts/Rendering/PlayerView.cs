@@ -1,6 +1,6 @@
 using Arch.Core;
 using Godot;
-using Simulation.Domain.Components;
+using Simulation.Domain;
 
 namespace GameClient.Scripts.Rendering;
 

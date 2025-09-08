@@ -1,15 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
-using Network.Adapters;
 using Simulation.Application;
 using Simulation.Application.Options;
-using Simulation.Application.Services;
-using Simulation.Application.Services.Loop;
-using Simulation.Networking;
 using Simulation.Persistence;
-using Simulation.Pooling;
 
 namespace Simulation.Server;
 
@@ -23,29 +17,18 @@ public static class Services
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .Build();
         
-        services.Configure<NetworkOptions>(configuration.GetSection(NetworkOptions.SectionName));
-        services.AddSingleton<NetworkOptions>(sp => 
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<NetworkOptions>>().Value);
-        services.Configure<SpatialOptions>(configuration.GetSection(SpatialOptions.SectionName));
-        services.AddSingleton<SpatialOptions>(sp => 
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SpatialOptions>>().Value);
-        services.Configure<WorldOptions>(configuration.GetSection(WorldOptions.SectionName));
-        services.AddSingleton<WorldOptions>(sp => 
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<WorldOptions>>().Value);
+        services.AddLogging(builder => builder.AddConfiguration(configuration.GetSection("Logging")).AddConsole());
         
-        services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Trace));
+        services.AddApplication()
+            .ConfigureOptions<ServerOptions>(configuration, ServerOptions.SectionName)
+            .ConfigureOptions<GameLoopOptions>(configuration, GameLoopOptions.SectionName)
+            .ConfigureOptions<NetworkOptions>(configuration, GameLoopOptions.SectionName)
+            .ConfigureOptions<SpatialOptions>(configuration, GameLoopOptions.SectionName)
+            .ConfigureOptions<WorldOptions>(configuration, GameLoopOptions.SectionName)
+            .AddPerformanceMonitor();
 
-        services.AddApplication(configuration);
-        services.AddPersistence();
-        services.AddPoolingServices();
-        services.AddServerNetworking();
+        services.AddPersistence(configuration);
         
-        services.AddSingleton<GameLoop>();
-        services.TryAddSingleton<PerformanceMonitor>();
-
-
-        // Registra os serviços específicos da aplicação Console
-
         return services;
     }
 }

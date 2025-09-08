@@ -1,6 +1,5 @@
 using Godot;
 using GameClient.Scripts.Network;
-using Simulation.Domain.Components;
 
 namespace GameClient.Scripts.Input;
 

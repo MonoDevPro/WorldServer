@@ -8,6 +8,7 @@ using GameClient.Scripts.State;
 using GameClient.Scripts.Rendering;
 using GameClient.Scripts.Input;
 using Simulation.Application.DTOs;
+using Simulation.Domain;
 
 namespace GameClient.Scripts;
 
@@ -215,8 +216,8 @@ public partial class Game : Node
                 {
                     CharId = 2,
                     MapId = 1,
-                    Position = new Simulation.Domain.Components.Position { X = 5, Y = 5 },
-                    Direction = new Simulation.Domain.Components.Direction { X = 0, Y = 1 },
+                    Position = new Position { X = 5, Y = 5 },
+                    Direction = new Direction { X = 0, Y = 1 },
                     MoveSpeed = 1.0f,
                     AttackCastTime = 0.5f,
                     AttackCooldown = 1.0f
@@ -232,8 +233,8 @@ public partial class Game : Node
             var moveSnapshot = new ClientMoveSnapshot
             {
                 CharId = 2,
-                Old = new Simulation.Domain.Components.Position { X = 5, Y = 5 },
-                New = new Simulation.Domain.Components.Position { X = 6, Y = 5 }
+                Old = new Position { X = 5, Y = 5 },
+                New = new Position { X = 6, Y = 5 }
             };
             _packetHandler.HandleMoveSnapshot(moveSnapshot);
         };
